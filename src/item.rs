@@ -1,14 +1,15 @@
-use super::{DbSyntaxNode, DbTns, DbTypedSyntaxNode, DynDbSyntaxNode, NewDbTypedSyntaxNode};
-use crate::expression;
+use crate::function::Function;
 use crate::generic_param::option_wrapped_generic_params_to_vec;
-use crate::{element_list_to_vec, Expression, GenericParam, Visibility};
+use crate::{
+    element_list_to_vec, DbSyntaxNode, DbTns, DbTypedSyntaxNode, DynDbSyntaxNode, Expression,
+    GenericParam, NewDbTypedSyntaxNode, Visibility,
+};
 use cairo_lang_syntax::node::db::SyntaxGroup;
 use cairo_lang_syntax::node::{ast, Terminal, TypedSyntaxNode};
 
 pub type Constant<'a> = DbTns<'a, ast::ItemConstant>;
 pub type Module<'a> = DbTns<'a, ast::ItemModule>;
 pub type Use<'a> = DbTns<'a, ast::ItemUse>;
-pub type FreeFunction<'a> = DbTns<'a, ast::FunctionWithBody>;
 pub type ExternFunction<'a> = DbTns<'a, ast::ItemExternFunction>;
 pub type ExternType<'a> = DbTns<'a, ast::ItemExternType>;
 pub type Trait<'a> = DbTns<'a, ast::ItemTrait>;
@@ -30,7 +31,7 @@ pub enum Item<'a> {
     Constant(Constant<'a>),
     Module(Module<'a>),
     Use(Use<'a>),
-    FreeFunction(FreeFunction<'a>),
+    FreeFunction(Function<'a>),
     ExternFunction(ExternFunction<'a>),
     ExternType(ExternType<'a>),
     Trait(Trait<'a>),
@@ -73,7 +74,7 @@ impl<'a> NewDbTypedSyntaxNode<'a> for Item<'a> {
             ast::ModuleItem::Constant(item) => Item::Constant(Constant::new(db, item)),
             ast::ModuleItem::Module(item) => Item::Module(Module::new(db, item)),
             ast::ModuleItem::Use(item) => Item::Use(Use::new(db, item)),
-            ast::ModuleItem::FreeFunction(item) => Item::FreeFunction(FreeFunction::new(db, item)),
+            ast::ModuleItem::FreeFunction(item) => Item::FreeFunction(Function::new(db, item)),
             ast::ModuleItem::ExternFunction(item) => {
                 Item::ExternFunction(ExternFunction::new(db, item))
             }
@@ -95,6 +96,49 @@ impl<'a> DbTypedSyntaxNode<'a> for Item<'a> {
     type TSN = ast::ModuleItem;
     fn typed_syntax_node(&self) -> Self::TSN {
         ast::ModuleItem::from_syntax_node(self.db(), self.syntax_node())
+    }
+}
+
+impl Constant<'_> {
+    pub fn attributes(&self) -> Vec<Attribute> {
+        element_list_to_vec(self.db(), self.tsn.attributes(self.db()))
+    }
+    pub fn visibility(&self) -> Visibility {
+        match self.tsn.visibility(self.db()) {
+            ast::Visibility::Pub(_) => Visibility::Pub,
+            ast::Visibility::Default(_) => Visibility::Default,
+        }
+    }
+    pub fn name(&self) -> String {
+        self.tsn.name(self.db()).text(self.db()).to_string()
+    }
+    pub fn ty(&self) -> Expression {
+        Expression::new(self.db(), self.tsn.type_clause(self.db()).ty(self.db()))
+    }
+
+    pub fn value(&self) -> Expression {
+        Expression::new(self.db(), self.tsn.value(self.db()))
+    }
+}
+
+impl Module<'_> {
+    pub fn attributes(&self) -> Vec<Attribute> {
+        element_list_to_vec(self.db(), self.tsn.attributes(self.db()))
+    }
+    pub fn visibility(&self) -> Visibility {
+        match self.tsn.visibility(self.db()) {
+            ast::Visibility::Pub(_) => Visibility::Pub,
+            ast::Visibility::Default(_) => Visibility::Default,
+        }
+    }
+    pub fn name(&self) -> String {
+        self.tsn.name(self.db()).text(self.db()).to_string()
+    }
+    pub fn items(&self) -> Vec<Item> {
+        match self.tsn.body(self.db()) {
+            ast::MaybeModuleBody::None(_) => vec![],
+            ast::MaybeModuleBody::Some(tsn) => element_list_to_vec(self.db(), tsn.items(self.db())),
+        }
     }
 }
 
@@ -164,37 +208,6 @@ impl Variant<'_> {
     }
 }
 
-impl Constant<'_> {
-    pub fn attributes(&self) -> Vec<Attribute> {
-        element_list_to_vec(self.db(), self.tsn.attributes(self.db()))
-    }
-    pub fn visibility(&self) -> Visibility {
-        match self.tsn.visibility(self.db()) {
-            ast::Visibility::Pub(_) => Visibility::Pub,
-            ast::Visibility::Default(_) => Visibility::Default,
-        }
-    }
-    pub fn name(&self) -> String {
-        self.tsn.name(self.db()).text(self.db()).to_string()
-    }
-    pub fn ty(&self) -> Expression {
-        Expression::new(self.db(), self.tsn.type_clause(self.db()).ty(self.db()))
-    }
-
-    pub fn value(&self) -> Expression {
-        Expression::new(self.db(), self.tsn.value(self.db()))
-    }
-}
-
-impl Attribute<'_> {
-    pub fn attr(&self) -> expression::Path {
-        expression::Path::new(self.db(), self.tsn.attr(self.db()))
-    }
-    pub fn arguments(&self) -> Vec<Arg> {
-        option_args_parenthesized_to_vec(self.db(), self.tsn.arguments(self.db()))
-    }
-}
-
 pub fn option_args_parenthesized_to_vec<'a>(
     db: &'a dyn SyntaxGroup,
     option_args_parenthesized: ast::OptionArgListParenthesized,
@@ -205,11 +218,4 @@ pub fn option_args_parenthesized_to_vec<'a>(
             element_list_to_vec(db, tsn.arguments(db))
         }
     }
-}
-
-pub fn terminal_identifier_to_text(
-    db: &dyn SyntaxGroup,
-    terminal: ast::TerminalIdentifier,
-) -> String {
-    terminal.text(db).to_string()
 }

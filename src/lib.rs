@@ -1,7 +1,7 @@
 pub mod db_tns;
 pub use db_tns::{
     element_list_to_vec, DbSyntaxNode, DbTns, DbTypedSyntaxNode, DynDbSyntaxNode,
-    NewDbTypedSyntaxNode, Visibility,
+    NewDbTypedSyntaxNode,
 };
 
 pub mod expression;
@@ -16,3 +16,8 @@ pub mod generic_arg;
 
 mod generic_param;
 pub use generic_param::GenericParam;
+
+pub mod function;
+
+pub mod common;
+pub use common::{Arg, Attribute, Param, Visibility};

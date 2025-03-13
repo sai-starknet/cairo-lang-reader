@@ -182,9 +182,3 @@ pub fn derive_attrs(db: &dyn SyntaxGroup, attr_list: ast::AttributeList) -> Vec<
         .flatten()
         .collect::<Vec<_>>()
 }
-
-#[derive(Clone, Debug)]
-pub enum Visibility {
-    Default,
-    Pub,
-}

@@ -1,4 +1,6 @@
-use super::{DbSyntaxNode, DbTns, DbTypedSyntaxNode, DynDbSyntaxNode, NewDbTypedSyntaxNode};
+use crate::{element_list_to_vec, DynDbSyntaxNode};
+
+use super::{DbSyntaxNode, DbTns, DbTypedSyntaxNode, NewDbTypedSyntaxNode};
 use cairo_lang_syntax::node::db::SyntaxGroup;
 use cairo_lang_syntax::node::{ast, TypedSyntaxNode};
 
@@ -31,14 +33,14 @@ pub type ExprMissing<'a> = DbTns<'a, ast::ExprMissing>;
 pub enum Expression<'a> {
     Path(Path<'a>),
     Literal(Literal<'a>),
-    ShortString(ShortString<'a>),
-    String(ExprString<'a>),
-    False(False<'a>),
-    True(True<'a>),
+    ShortString(String),
+    String(String),
+    False,
+    True,
     Parenthesized(Parenthesized<'a>),
     Unary(Unary<'a>),
     Binary(Binary<'a>),
-    Tuple(Tuple<'a>),
+    Tuple(Vec<Expression<'a>>),
     FunctionCall(FunctionCall<'a>),
     StructCtorCall(StructCtorCall<'a>),
     Block(Block<'a>),
@@ -61,14 +63,14 @@ impl<'a> DynDbSyntaxNode<'a> for Expression<'a> {
         match self {
             Expression::Path(expr) => expr,
             Expression::Literal(expr) => expr,
-            Expression::ShortString(expr) => expr,
-            Expression::String(expr) => expr,
-            Expression::False(expr) => expr,
-            Expression::True(expr) => expr,
+            Expression::ShortString(_) => panic!("ShortString not a TypedSyntaxNode"),
+            Expression::String(_) => panic!("String not a TypedSyntaxNode"),
+            Expression::False => panic!("False not a TypedSyntaxNode"),
+            Expression::True => panic!("True not a TypedSyntaxNode"),
             Expression::Parenthesized(expr) => expr,
             Expression::Unary(expr) => expr,
             Expression::Binary(expr) => expr,
-            Expression::Tuple(expr) => expr,
+            Expression::Tuple(_) => panic!("Tuple not a TypedSyntaxNode"),
             Expression::FunctionCall(expr) => expr,
             Expression::StructCtorCall(expr) => expr,
             Expression::Block(expr) => expr,
@@ -96,14 +98,16 @@ impl<'a> NewDbTypedSyntaxNode<'a> for Expression<'a> {
             ast::Expr::Literal(expr) => Expression::Literal(Literal::new(db, expr)),
             ast::Expr::ShortString(expr) => Expression::ShortString(ShortString::new(db, expr)),
             ast::Expr::String(expr) => Expression::String(ExprString::new(db, expr)),
-            ast::Expr::False(expr) => Expression::False(False::new(db, expr)),
-            ast::Expr::True(expr) => Expression::True(True::new(db, expr)),
+            ast::Expr::False(expr) => Expression::False,
+            ast::Expr::True(expr) => Expression::True,
             ast::Expr::Parenthesized(expr) => {
                 Expression::Parenthesized(Parenthesized::new(db, expr))
             }
             ast::Expr::Unary(expr) => Expression::Unary(Unary::new(db, expr)),
             ast::Expr::Binary(expr) => Expression::Binary(Binary::new(db, expr)),
-            ast::Expr::Tuple(expr) => Expression::Tuple(Tuple::new(db, expr.expressions(db))),
+            ast::Expr::Tuple(expr) => {
+                Expression::Tuple(element_list_to_vec(db, expr.expressions(db)))
+            }
             ast::Expr::FunctionCall(expr) => Expression::FunctionCall(FunctionCall::new(db, expr)),
             ast::Expr::StructCtorCall(expr) => {
                 Expression::StructCtorCall(StructCtorCall::new(db, expr))
