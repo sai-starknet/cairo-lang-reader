@@ -1,31 +1,33 @@
 use crate::function::Function;
 use crate::generic_param::option_wrapped_generic_params_to_vec;
+use crate::syntax_element::ToTypedSyntaxElementLike;
 use crate::{
-    element_list_to_vec, DbSyntaxNode, DbTns, DbTypedSyntaxNode, DynDbSyntaxNode, Expression,
-    GenericParam, NewDbTypedSyntaxNode, Visibility,
+    element_list_to_vec, DbSyntaxNode, DbTypedSyntaxNode, DynDbSyntaxNode, Expression,
+    GenericParam, NewDbTypedSyntaxNode, TypedSyntaxElement, Visibility,
 };
 use cairo_lang_syntax::node::db::SyntaxGroup;
-use cairo_lang_syntax::node::{ast, Terminal, TypedSyntaxNode};
+use cairo_lang_syntax::node::kind::SyntaxKind;
+use cairo_lang_syntax::node::{ast, SyntaxNode, Terminal, Token, TypedSyntaxNode};
 
-pub type Constant<'a> = DbTns<'a, ast::ItemConstant>;
-pub type Module<'a> = DbTns<'a, ast::ItemModule>;
-pub type Use<'a> = DbTns<'a, ast::ItemUse>;
-pub type ExternFunction<'a> = DbTns<'a, ast::ItemExternFunction>;
-pub type ExternType<'a> = DbTns<'a, ast::ItemExternType>;
-pub type Trait<'a> = DbTns<'a, ast::ItemTrait>;
-pub type Impl<'a> = DbTns<'a, ast::ItemImpl>;
-pub type ImplAlias<'a> = DbTns<'a, ast::ItemImplAlias>;
-pub type Struct<'a> = DbTns<'a, ast::ItemStruct>;
-pub type Enum<'a> = DbTns<'a, ast::ItemEnum>;
-pub type TypeAlias<'a> = DbTns<'a, ast::ItemTypeAlias>;
-pub type InlineMacro<'a> = DbTns<'a, ast::ItemInlineMacro>;
-pub type ItemHeaderDoc<'a> = DbTns<'a, ast::ItemHeaderDoc>;
-pub type ItemMissing<'a> = DbTns<'a, ast::ModuleItemMissing>;
+pub type Constant<'a> = TypedSyntaxElement<'a, ast::ItemConstant>;
+pub type Module<'a> = TypedSyntaxElement<'a, ast::ItemModule>;
+pub type Use<'a> = TypedSyntaxElement<'a, ast::ItemUse>;
+pub type ExternFunction<'a> = TypedSyntaxElement<'a, ast::ItemExternFunction>;
+pub type ExternType<'a> = TypedSyntaxElement<'a, ast::ItemExternType>;
+pub type Trait<'a> = TypedSyntaxElement<'a, ast::ItemTrait>;
+pub type Impl<'a> = TypedSyntaxElement<'a, ast::ItemImpl>;
+pub type ImplAlias<'a> = TypedSyntaxElement<'a, ast::ItemImplAlias>;
+pub type Struct<'a> = TypedSyntaxElement<'a, ast::ItemStruct>;
+pub type Enum<'a> = TypedSyntaxElement<'a, ast::ItemEnum>;
+pub type TypeAlias<'a> = TypedSyntaxElement<'a, ast::ItemTypeAlias>;
+pub type InlineMacro<'a> = TypedSyntaxElement<'a, ast::ItemInlineMacro>;
+pub type ItemHeaderDoc<'a> = TypedSyntaxElement<'a, ast::ItemHeaderDoc>;
+pub type ItemMissing<'a> = TypedSyntaxElement<'a, ast::ModuleItemMissing>;
 
-pub type Member<'a> = DbTns<'a, ast::Member>;
-pub type Variant<'a> = DbTns<'a, ast::Variant>;
-pub type Attribute<'a> = DbTns<'a, ast::Attribute>;
-pub type Arg<'a> = DbTns<'a, ast::Arg>;
+pub type Member<'a> = TypedSyntaxElement<'a, ast::Member>;
+pub type Variant<'a> = TypedSyntaxElement<'a, ast::Variant>;
+pub type Attribute<'a> = TypedSyntaxElement<'a, ast::Attribute>;
+pub type Arg<'a> = TypedSyntaxElement<'a, ast::Arg>;
 
 pub enum Item<'a> {
     Constant(Constant<'a>),
@@ -45,79 +47,65 @@ pub enum Item<'a> {
     Missing(ItemMissing<'a>),
 }
 
-impl<'a> DynDbSyntaxNode<'a> for Item<'a> {
-    fn to_dyn_db_ast_trait(&self) -> &dyn DbSyntaxNode {
-        match self {
-            Item::Constant(item) => item,
-            Item::Module(item) => item,
-            Item::Use(item) => item,
-            Item::FreeFunction(item) => item,
-            Item::ExternFunction(item) => item,
-            Item::ExternType(item) => item,
-            Item::Trait(item) => item,
-            Item::Impl(item) => item,
-            Item::ImplAlias(item) => item,
-            Item::Struct(item) => item,
-            Item::Enum(item) => item,
-            Item::TypeAlias(item) => item,
-            Item::InlineMacro(item) => item,
-            Item::HeaderDoc(item) => item,
-            Item::Missing(item) => item,
-        }
-    }
-}
-
-impl<'a> NewDbTypedSyntaxNode<'a> for Item<'a> {
-    type TSN = ast::ModuleItem;
-    fn new(db: &'a dyn SyntaxGroup, node: ast::ModuleItem) -> Self {
-        match node {
-            ast::ModuleItem::Constant(item) => Item::Constant(Constant::new(db, item)),
-            ast::ModuleItem::Module(item) => Item::Module(Module::new(db, item)),
-            ast::ModuleItem::Use(item) => Item::Use(Use::new(db, item)),
-            ast::ModuleItem::FreeFunction(item) => Item::FreeFunction(Function::new(db, item)),
-            ast::ModuleItem::ExternFunction(item) => {
-                Item::ExternFunction(ExternFunction::new(db, item))
+impl<'a> ToTypedSyntaxElementLike<'a> for Item<'a> {
+    fn to_typed_syntax_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Item<'a> {
+        let kind = node.kind(db);
+        match kind {
+            SyntaxKind::ItemConstant => Item::Constant(Constant::from_syntax_node(db, node)),
+            SyntaxKind::ItemModule => Item::Module(Module::from_syntax_node(db, node)),
+            SyntaxKind::ItemUse => Item::Use(Use::from_syntax_node(db, node)),
+            SyntaxKind::FunctionWithBody => {
+                Item::FreeFunction(Function::from_syntax_node(db, node))
             }
-            ast::ModuleItem::ExternType(item) => Item::ExternType(ExternType::new(db, item)),
-            ast::ModuleItem::Trait(item) => Item::Trait(Trait::new(db, item)),
-            ast::ModuleItem::Impl(item) => Item::Impl(Impl::new(db, item)),
-            ast::ModuleItem::ImplAlias(item) => Item::ImplAlias(ImplAlias::new(db, item)),
-            ast::ModuleItem::Struct(item) => Item::Struct(Struct::new(db, item)),
-            ast::ModuleItem::Enum(item) => Item::Enum(Enum::new(db, item)),
-            ast::ModuleItem::TypeAlias(item) => Item::TypeAlias(TypeAlias::new(db, item)),
-            ast::ModuleItem::InlineMacro(item) => Item::InlineMacro(InlineMacro::new(db, item)),
-            ast::ModuleItem::HeaderDoc(item) => Item::HeaderDoc(ItemHeaderDoc::new(db, item)),
-            ast::ModuleItem::Missing(item) => Item::Missing(ItemMissing::new(db, item)),
+            SyntaxKind::ItemExternFunction => {
+                Item::ExternFunction(ExternFunction::from_syntax_node(db, node))
+            }
+            SyntaxKind::ItemExternType => Item::ExternType(ExternType::from_syntax_node(db, node)),
+            SyntaxKind::ItemTrait => Item::Trait(Trait::from_syntax_node(db, node)),
+            SyntaxKind::ItemImpl => Item::Impl(Impl::from_syntax_node(db, node)),
+            SyntaxKind::ItemImplAlias => Item::ImplAlias(ImplAlias::from_syntax_node(db, node)),
+            SyntaxKind::ItemStruct => Item::Struct(Struct::from_syntax_node(db, node)),
+            SyntaxKind::ItemEnum => Item::Enum(Enum::from_syntax_node(db, node)),
+            SyntaxKind::ItemTypeAlias => Item::TypeAlias(TypeAlias::from_syntax_node(db, node)),
+            SyntaxKind::ItemInlineMacro => {
+                Item::InlineMacro(InlineMacro::from_syntax_node(db, node))
+            }
+            SyntaxKind::ItemHeaderDoc => Item::HeaderDoc(ItemHeaderDoc::from_syntax_node(db, node)),
+            SyntaxKind::ModuleItemMissing => Item::Missing(ItemMissing::from_syntax_node(db, node)),
+            _ => panic!(
+                "Unexpected syntax kind {:?} when constructing {}.",
+                kind, "Item"
+            ),
         }
-    }
-}
-
-impl<'a> DbTypedSyntaxNode<'a> for Item<'a> {
-    type TSN = ast::ModuleItem;
-    fn typed_syntax_node(&self) -> Self::TSN {
-        ast::ModuleItem::from_syntax_node(self.db(), self.syntax_node())
     }
 }
 
 impl Constant<'_> {
     pub fn attributes(&self) -> Vec<Attribute> {
-        element_list_to_vec(self.db(), self.tsn.attributes(self.db()))
+        self.child_to_vec::<1, Attribute>(ast::ItemConstant::INDEX_ATTRIBUTES)
     }
     pub fn visibility(&self) -> Visibility {
-        match self.tsn.visibility(self.db()) {
-            ast::Visibility::Pub(_) => Visibility::Pub,
-            ast::Visibility::Default(_) => Visibility::Default,
+        let kind = self.get_kind_of_child(ast::ItemConstant::INDEX_VISIBILITY);
+        match kind {
+            SyntaxKind::VisibilityDefault => Visibility::Pub,
+            SyntaxKind::VisibilityPub => Visibility::Default,
+            _ => panic!(
+                "Unexpected syntax kind {:?} when constructing {}.",
+                kind, "Visibility"
+            ),
         }
     }
     pub fn name(&self) -> String {
-        self.tsn.name(self.db()).text(self.db()).to_string()
+        let tsn: ast::TerminalIdentifier =
+            self.get_child_typed_syntax_node(ast::ItemConstant::INDEX_NAME);
+        tsn.token(self.db).text(self.db).to_string()
     }
     pub fn ty(&self) -> Expression {
-        Expression::new(self.db(), self.tsn.type_clause(self.db()).ty(self.db()))
+        self.get_child_typed_syntax_element(ast::ItemConstant::INDEX_TYPE_CLAUSE)
     }
 
     pub fn value(&self) -> Expression {
-        Expression::new(self.db(), self.tsn.value(self.db()))
+        self.get_child_typed_syntax_element(ast::ItemConstant::INDEX_VALUE)
     }
 }
 

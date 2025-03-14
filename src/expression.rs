@@ -1,34 +1,36 @@
+use crate::syntax_element::{get_child, syntax_node_to_vec, ToTypedSyntaxElementLike};
 use crate::{element_list_to_vec, DynDbSyntaxNode};
 
-use super::{DbSyntaxNode, DbTns, DbTypedSyntaxNode, NewDbTypedSyntaxNode};
+use super::{DbSyntaxNode, DbTypedSyntaxNode, NewDbTypedSyntaxNode, TypedSyntaxElement};
 use cairo_lang_syntax::node::db::SyntaxGroup;
-use cairo_lang_syntax::node::{ast, TypedSyntaxNode};
+use cairo_lang_syntax::node::kind::SyntaxKind;
+use cairo_lang_syntax::node::{ast, SyntaxNode, TypedSyntaxNode};
 
-pub type Path<'a> = DbTns<'a, ast::ExprPath>;
-pub type Literal<'a> = DbTns<'a, ast::TerminalLiteralNumber>;
-pub type ShortString<'a> = DbTns<'a, ast::TerminalShortString>;
-pub type ExprString<'a> = DbTns<'a, ast::TerminalString>;
-pub type False<'a> = DbTns<'a, ast::TerminalFalse>;
-pub type True<'a> = DbTns<'a, ast::TerminalTrue>;
-pub type Parenthesized<'a> = DbTns<'a, ast::ExprParenthesized>;
-pub type Unary<'a> = DbTns<'a, ast::ExprUnary>;
-pub type Binary<'a> = DbTns<'a, ast::ExprBinary>;
-pub type Tuple<'a> = DbTns<'a, ast::ExprList>;
-pub type FunctionCall<'a> = DbTns<'a, ast::ExprFunctionCall>;
-pub type StructCtorCall<'a> = DbTns<'a, ast::ExprStructCtorCall>;
-pub type Block<'a> = DbTns<'a, ast::ExprBlock>;
-pub type Match<'a> = DbTns<'a, ast::ExprMatch>;
-pub type If<'a> = DbTns<'a, ast::ExprIf>;
-pub type Loop<'a> = DbTns<'a, ast::ExprLoop>;
-pub type While<'a> = DbTns<'a, ast::ExprWhile>;
-pub type For<'a> = DbTns<'a, ast::ExprFor>;
-pub type Closure<'a> = DbTns<'a, ast::ExprClosure>;
-pub type ErrorPropagate<'a> = DbTns<'a, ast::ExprErrorPropagate>;
-pub type FieldInitShorthand<'a> = DbTns<'a, ast::ExprFieldInitShorthand>;
-pub type Indexed<'a> = DbTns<'a, ast::ExprIndexed>;
-pub type ExprInlineMacro<'a> = DbTns<'a, ast::ExprInlineMacro>;
-pub type FixedSizeArray<'a> = DbTns<'a, ast::ExprFixedSizeArray>;
-pub type ExprMissing<'a> = DbTns<'a, ast::ExprMissing>;
+pub type Path<'a> = TypedSyntaxElement<'a, ast::ExprPath>;
+pub type Literal<'a> = TypedSyntaxElement<'a, ast::TerminalLiteralNumber>;
+pub type ShortString<'a> = TypedSyntaxElement<'a, ast::TerminalShortString>;
+pub type ExprString<'a> = TypedSyntaxElement<'a, ast::TerminalString>;
+pub type False<'a> = TypedSyntaxElement<'a, ast::TerminalFalse>;
+pub type True<'a> = TypedSyntaxElement<'a, ast::TerminalTrue>;
+pub type Parenthesized<'a> = TypedSyntaxElement<'a, ast::ExprParenthesized>;
+pub type Unary<'a> = TypedSyntaxElement<'a, ast::ExprUnary>;
+pub type Binary<'a> = TypedSyntaxElement<'a, ast::ExprBinary>;
+pub type Tuple<'a> = TypedSyntaxElement<'a, ast::ExprList>;
+pub type FunctionCall<'a> = TypedSyntaxElement<'a, ast::ExprFunctionCall>;
+pub type StructCtorCall<'a> = TypedSyntaxElement<'a, ast::ExprStructCtorCall>;
+pub type Block<'a> = TypedSyntaxElement<'a, ast::ExprBlock>;
+pub type Match<'a> = TypedSyntaxElement<'a, ast::ExprMatch>;
+pub type If<'a> = TypedSyntaxElement<'a, ast::ExprIf>;
+pub type Loop<'a> = TypedSyntaxElement<'a, ast::ExprLoop>;
+pub type While<'a> = TypedSyntaxElement<'a, ast::ExprWhile>;
+pub type For<'a> = TypedSyntaxElement<'a, ast::ExprFor>;
+pub type Closure<'a> = TypedSyntaxElement<'a, ast::ExprClosure>;
+pub type ErrorPropagate<'a> = TypedSyntaxElement<'a, ast::ExprErrorPropagate>;
+pub type FieldInitShorthand<'a> = TypedSyntaxElement<'a, ast::ExprFieldInitShorthand>;
+pub type Indexed<'a> = TypedSyntaxElement<'a, ast::ExprIndexed>;
+pub type ExprInlineMacro<'a> = TypedSyntaxElement<'a, ast::ExprInlineMacro>;
+pub type FixedSizeArray<'a> = TypedSyntaxElement<'a, ast::ExprFixedSizeArray>;
+pub type ExprMissing<'a> = TypedSyntaxElement<'a, ast::ExprMissing>;
 
 pub enum Expression<'a> {
     Path(Path<'a>),
@@ -58,86 +60,77 @@ pub enum Expression<'a> {
     Missing(ExprMissing<'a>),
 }
 
-impl<'a> DynDbSyntaxNode<'a> for Expression<'a> {
-    fn to_dyn_db_ast_trait(&self) -> &dyn DbSyntaxNode {
-        match self {
-            Expression::Path(expr) => expr,
-            Expression::Literal(expr) => expr,
-            Expression::ShortString(_) => panic!("ShortString not a TypedSyntaxNode"),
-            Expression::String(_) => panic!("String not a TypedSyntaxNode"),
-            Expression::False => panic!("False not a TypedSyntaxNode"),
-            Expression::True => panic!("True not a TypedSyntaxNode"),
-            Expression::Parenthesized(expr) => expr,
-            Expression::Unary(expr) => expr,
-            Expression::Binary(expr) => expr,
-            Expression::Tuple(_) => panic!("Tuple not a TypedSyntaxNode"),
-            Expression::FunctionCall(expr) => expr,
-            Expression::StructCtorCall(expr) => expr,
-            Expression::Block(expr) => expr,
-            Expression::Match(expr) => expr,
-            Expression::If(expr) => expr,
-            Expression::Loop(expr) => expr,
-            Expression::While(expr) => expr,
-            Expression::For(expr) => expr,
-            Expression::Closure(expr) => expr,
-            Expression::ErrorPropagate(expr) => expr,
-            Expression::FieldInitShorthand(expr) => expr,
-            Expression::Indexed(expr) => expr,
-            Expression::InlineMacro(expr) => expr,
-            Expression::FixedSizeArray(expr) => expr,
-            Expression::Missing(expr) => expr,
+impl<'a> ToTypedSyntaxElementLike<'a> for Expression<'a> {
+    fn to_typed_syntax_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Expression<'a> {
+        let kind = node.kind(db);
+        match kind {
+            SyntaxKind::ExprPath => Expression::Path(Path::from_syntax_node(db, node)),
+            SyntaxKind::TerminalLiteralNumber => {
+                Expression::Literal(Literal::from_syntax_node(db, node))
+            }
+            SyntaxKind::TerminalShortString => Expression::ShortString(todo!("ShortString")),
+            SyntaxKind::TerminalString => Expression::String(todo!("String")),
+            SyntaxKind::TerminalFalse => Expression::False,
+            SyntaxKind::TerminalTrue => Expression::True,
+            SyntaxKind::ExprParenthesized => {
+                Expression::Parenthesized(Parenthesized::from_syntax_node(db, node))
+            }
+            SyntaxKind::ExprUnary => Expression::Unary(Unary::from_syntax_node(db, node)),
+            SyntaxKind::ExprBinary => Expression::Binary(Binary::from_syntax_node(db, node)),
+            SyntaxKind::ExprListParenthesized => {
+                Expression::Tuple(syntax_node_to_vec::<2, Expression>(
+                    db,
+                    db.get_children(node)[1].clone(),
+                ))
+            }
+            SyntaxKind::ExprFunctionCall => {
+                Expression::FunctionCall(FunctionCall::from_syntax_node(db, node))
+            }
+            SyntaxKind::ExprStructCtorCall => {
+                Expression::StructCtorCall(StructCtorCall::from_syntax_node(db, node))
+            }
+            SyntaxKind::ExprBlock => Expression::Block(Block::from_syntax_node(db, node)),
+            SyntaxKind::ExprMatch => Expression::Match(Match::from_syntax_node(db, node)),
+            SyntaxKind::ExprIf => Expression::If(If::from_syntax_node(db, node)),
+            SyntaxKind::ExprLoop => Expression::Loop(Loop::from_syntax_node(db, node)),
+            SyntaxKind::ExprWhile => Expression::While(While::from_syntax_node(db, node)),
+            SyntaxKind::ExprFor => Expression::For(For::from_syntax_node(db, node)),
+            SyntaxKind::ExprClosure => Expression::Closure(Closure::from_syntax_node(db, node)),
+            SyntaxKind::ExprErrorPropagate => {
+                Expression::ErrorPropagate(ErrorPropagate::from_syntax_node(db, node))
+            }
+            SyntaxKind::ExprFieldInitShorthand => {
+                Expression::FieldInitShorthand(FieldInitShorthand::from_syntax_node(db, node))
+            }
+            SyntaxKind::ExprIndexed => Expression::Indexed(Indexed::from_syntax_node(db, node)),
+            SyntaxKind::ExprInlineMacro => {
+                Expression::InlineMacro(ExprInlineMacro::from_syntax_node(db, node))
+            }
+            SyntaxKind::ExprFixedSizeArray => {
+                Expression::FixedSizeArray(FixedSizeArray::from_syntax_node(db, node))
+            }
+            SyntaxKind::ExprMissing => Expression::Missing(ExprMissing::from_syntax_node(db, node)),
+            _ => panic!(
+                "Unexpected syntax kind {:?} when constructing {}.",
+                kind, "Expression"
+            ),
         }
     }
 }
 
-impl<'a> NewDbTypedSyntaxNode<'a> for Expression<'a> {
-    type TSN = ast::Expr;
-    fn new(db: &'a dyn SyntaxGroup, node: ast::Expr) -> Expression<'a> {
-        match node {
-            ast::Expr::Path(expr) => Expression::Path(Path::new(db, expr)),
-            ast::Expr::Literal(expr) => Expression::Literal(Literal::new(db, expr)),
-            ast::Expr::ShortString(expr) => Expression::ShortString(ShortString::new(db, expr)),
-            ast::Expr::String(expr) => Expression::String(ExprString::new(db, expr)),
-            ast::Expr::False(expr) => Expression::False,
-            ast::Expr::True(expr) => Expression::True,
-            ast::Expr::Parenthesized(expr) => {
-                Expression::Parenthesized(Parenthesized::new(db, expr))
-            }
-            ast::Expr::Unary(expr) => Expression::Unary(Unary::new(db, expr)),
-            ast::Expr::Binary(expr) => Expression::Binary(Binary::new(db, expr)),
-            ast::Expr::Tuple(expr) => {
-                Expression::Tuple(element_list_to_vec(db, expr.expressions(db)))
-            }
-            ast::Expr::FunctionCall(expr) => Expression::FunctionCall(FunctionCall::new(db, expr)),
-            ast::Expr::StructCtorCall(expr) => {
-                Expression::StructCtorCall(StructCtorCall::new(db, expr))
-            }
-            ast::Expr::Block(expr) => Expression::Block(Block::new(db, expr)),
-            ast::Expr::Match(expr) => Expression::Match(Match::new(db, expr)),
-            ast::Expr::If(expr) => Expression::If(If::new(db, expr)),
-            ast::Expr::Loop(expr) => Expression::Loop(Loop::new(db, expr)),
-            ast::Expr::While(expr) => Expression::While(While::new(db, expr)),
-            ast::Expr::For(expr) => Expression::For(For::new(db, expr)),
-            ast::Expr::Closure(expr) => Expression::Closure(Closure::new(db, expr)),
-            ast::Expr::ErrorPropagate(expr) => {
-                Expression::ErrorPropagate(ErrorPropagate::new(db, expr))
-            }
-            ast::Expr::FieldInitShorthand(expr) => {
-                Expression::FieldInitShorthand(FieldInitShorthand::new(db, expr))
-            }
-            ast::Expr::Indexed(expr) => Expression::Indexed(Indexed::new(db, expr)),
-            ast::Expr::InlineMacro(expr) => Expression::InlineMacro(ExprInlineMacro::new(db, expr)),
-            ast::Expr::FixedSizeArray(expr) => {
-                Expression::FixedSizeArray(FixedSizeArray::new(db, expr))
-            }
-            ast::Expr::Missing(expr) => Expression::Missing(ExprMissing::new(db, expr)),
+impl<'a> ToTypedSyntaxElementLike<'a> for Option<Expression<'a>> {
+    fn to_typed_syntax_element(
+        db: &'a dyn SyntaxGroup,
+        node: SyntaxNode,
+    ) -> Option<Expression<'a>> {
+        let kind = node.kind(db);
+        match kind {
+            SyntaxKind::OptionTypeClauseEmpty => None,
+            SyntaxKind::TypeClause => Some(Expression::to_child_typed_syntax_element(db, node, 1)),
+            _ => panic!(
+                "Unexpected syntax kind {:?} when constructing {}.",
+                kind, "OptionTypeClause"
+            ),
         }
-    }
-}
-
-impl<'a> DbTypedSyntaxNode<'a> for Expression<'a> {
-    type TSN = ast::Expr;
-    fn typed_syntax_node(&self) -> ast::Expr {
-        ast::Expr::from_syntax_node(self.db(), self.syntax_node())
     }
 }

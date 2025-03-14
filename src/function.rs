@@ -4,7 +4,7 @@ use crate::{
     element_list_to_vec, Attribute, DbSyntaxNode, DbTns, Expression, GenericParam,
     NewDbTypedSyntaxNode, Param, Visibility,
 };
-use cairo_lang_syntax::node::{ast, Terminal};
+use cairo_lang_syntax::node::ast;
 
 pub type Function<'a> = DbTns<'a, ast::FunctionWithBody>;
 pub type FunctionDeclaration<'a> = DbTns<'a, ast::FunctionDeclaration>;

@@ -1,37 +1,32 @@
-use super::{DbSyntaxNode, DbTns, DbTypedSyntaxNode, DynDbSyntaxNode, NewDbTypedSyntaxNode};
-use cairo_lang_syntax::node::db::SyntaxGroup;
-use cairo_lang_syntax::node::{ast, TypedSyntaxNode};
+use crate::syntax_element::ToTypedSyntaxElementLike;
 
-pub type GenericArgUnnamed<'a> = DbTns<'a, ast::GenericArgUnnamed>;
-pub type GenericArgNamed<'a> = DbTns<'a, ast::GenericArgNamed>;
+use crate::TypedSyntaxElement;
+use cairo_lang_syntax::node::db::SyntaxGroup;
+use cairo_lang_syntax::node::kind::SyntaxKind;
+use cairo_lang_syntax::node::{ast, SyntaxNode};
+
+pub type GenericArgUnnamed<'a> = TypedSyntaxElement<'a, ast::GenericArgUnnamed>;
+pub type GenericArgNamed<'a> = TypedSyntaxElement<'a, ast::GenericArgNamed>;
 
 pub enum GenericArg<'a> {
     Unnamed(GenericArgUnnamed<'a>),
     Named(GenericArgNamed<'a>),
 }
 
-impl<'a> DynDbSyntaxNode<'a> for GenericArg<'a> {
-    fn to_dyn_db_ast_trait(&self) -> &dyn DbSyntaxNode {
-        match self {
-            GenericArg::Unnamed(expr) => expr,
-            GenericArg::Named(expr) => expr,
+impl<'a> ToTypedSyntaxElementLike<'a> for GenericArg<'a> {
+    fn to_syntax_element(db: &'a dyn SyntaxGroup, syntax_node: SyntaxNode) -> GenericArg<'a> {
+        let kind = syntax_node.kind(db);
+        match kind {
+            SyntaxKind::GenericArgUnnamed => {
+                GenericArg::Unnamed(GenericArgUnnamed::from_syntax_node(db, syntax_node))
+            }
+            SyntaxKind::GenericArgNamed => {
+                GenericArg::Named(GenericArgNamed::from_syntax_node(db, syntax_node))
+            }
+            _ => panic!(
+                "Unexpected syntax kind {:?} when constructing {}.",
+                kind, "GenericArg"
+            ),
         }
-    }
-}
-
-impl<'a> NewDbTypedSyntaxNode<'a> for GenericArg<'a> {
-    type TSN = ast::GenericArg;
-    fn new(db: &'a dyn SyntaxGroup, node: ast::GenericArg) -> GenericArg<'a> {
-        match node {
-            ast::GenericArg::Unnamed(expr) => GenericArg::Unnamed(GenericArgUnnamed::new(db, expr)),
-            ast::GenericArg::Named(expr) => GenericArg::Named(GenericArgNamed::new(db, expr)),
-        }
-    }
-}
-
-impl<'a> DbTypedSyntaxNode<'a> for GenericArg<'a> {
-    type TSN = ast::GenericArg;
-    fn typed_syntax_node(&self) -> Self::TSN {
-        ast::GenericArg::from_syntax_node(self.db(), self.syntax_node())
     }
 }

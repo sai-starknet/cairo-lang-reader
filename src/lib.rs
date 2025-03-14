@@ -21,3 +21,6 @@ pub mod function;
 
 pub mod common;
 pub use common::{Arg, Attribute, Param, Visibility};
+
+pub mod syntax_element;
+pub use syntax_element::{SyntaxElement, TypedSyntaxElement};

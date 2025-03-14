@@ -1,14 +1,15 @@
-use super::{DbSyntaxNode, DbTns, NewDbTypedSyntaxNode};
-use crate::element_list_to_vec;
-use crate::expression;
-use crate::Expression;
-use cairo_lang_syntax::node::ast;
+use crate::syntax_element::ToTypedSyntaxElementLike;
+use crate::{element_list_to_vec, expression, Expression, TypedSyntaxElement};
 use cairo_lang_syntax::node::db::SyntaxGroup;
-use cairo_lang_syntax::node::Terminal;
+use cairo_lang_syntax::node::kind::SyntaxKind;
+use cairo_lang_syntax::node::SyntaxNode;
+use cairo_lang_syntax::node::{ast, TypedSyntaxNode};
 
-pub type Attribute<'a> = DbTns<'a, ast::Attribute>;
-pub type Arg<'a> = DbTns<'a, ast::Arg>;
-pub type Param<'a> = DbTns<'a, ast::Param>;
+pub type Attribute<'a> = TypedSyntaxElement<'a, ast::Attribute>;
+pub type Arg<'a> = TypedSyntaxElement<'a, ast::Arg>;
+pub type Param<'a> = TypedSyntaxElement<'a, ast::Param>;
+pub type TerminalIdentifier<'a> = TypedSyntaxElement<'a, ast::TerminalIdentifier>;
+pub type TokenIdentifier<'a> = TypedSyntaxElement<'a, ast::TokenIdentifier>;
 
 #[derive(Clone, Debug)]
 pub enum Visibility {
@@ -21,29 +22,47 @@ pub enum Modifier {
     Mut,
 }
 
+impl Visibility {
+    pub fn from_parent_typed_syntax_element<TSN: TypedSyntaxNode>(
+        parent: TypedSyntaxElement<TSN>,
+        index: usize,
+    ) -> Visibility {
+        let kind = parent.get_kind_of_child(index);
+        match kind {
+            SyntaxKind::VisibilityDefault => Visibility::Pub,
+            SyntaxKind::VisibilityPub => Visibility::Default,
+            _ => panic!(
+                "Unexpected syntax kind {:?} when constructing {}.",
+                kind, "Visibility"
+            ),
+        }
+    }
+}
+
 impl Attribute<'_> {
     pub fn attr(&self) -> expression::Path {
-        expression::Path::new(self.db(), self.tsn.attr(self.db()))
+        expression::Path::from_syntax_node(self.db, self.node.attr(self.db))
     }
     pub fn arguments(&self) -> Vec<Arg> {
-        option_args_parenthesized_to_vec(self.db(), self.tsn.arguments(self.db()))
+        option_args_parenthesized_to_vec(self.db, self.node.arguments(self.db))
     }
 }
 
 impl Param<'_> {
     pub fn modifiers(&self) -> Vec<Modifier> {
-        ast_modifiers_to_modifier(self.db(), self.tsn.modifiers(self.db()))
+        ast_modifiers_to_modifier(self.db, self.node.modifiers(self.db))
     }
     pub fn name(&self) -> String {
-        self.tsn.name(self.db()).text(self.db()).to_string()
+        self.node.name(self.db).text(self.db).to_string()
     }
     pub fn ty(&self) -> Option<Expression> {
-        match self.tsn.type_clause(self.db()) {
-            ast::OptionTypeClause::Empty(_) => None,
-            ast::OptionTypeClause::TypeClause(tsn) => {
-                Some(Expression::new(self.db(), tsn.ty(self.db())))
-            }
-        }
+        self.get_child_typed_syntax_element(2)
+    }
+}
+
+impl TerminalIdentifier<'_> {
+    pub fn text(&self) -> String {
+        let tsn: ast::TokenIdentifier = self.get_child_typed_syntax_node(1);
     }
 }
 
@@ -53,8 +72,8 @@ pub fn option_args_parenthesized_to_vec<'a>(
 ) -> Vec<Arg<'a>> {
     match option_args_parenthesized {
         ast::OptionArgListParenthesized::Empty(_) => vec![],
-        ast::OptionArgListParenthesized::ArgListParenthesized(tsn) => {
-            element_list_to_vec(db, tsn.arguments(db))
+        ast::OptionArgListParenthesized::ArgListParenthesized(node) => {
+            element_list_to_vec(db, node.arguments(db))
         }
     }
 }
@@ -71,4 +90,8 @@ pub fn ast_modifiers_to_modifier<'a>(
             ast::Modifier::Mut(_) => Modifier::Mut,
         })
         .collect()
+}
+
+fn type_clause_to_expression<'a>(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Expression<'a> {
+    Expression::to_child_typed_syntax_element(db, node, ast::TypeClause::INDEX_TY)
 }
