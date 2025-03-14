@@ -1,14 +1,12 @@
-use crate::element_list_to_vec;
-
-use super::{DbSyntaxNode, DbTns, DbTypedSyntaxNode, DynDbSyntaxNode, NewDbTypedSyntaxNode};
+use crate::TypedSyntaxElement;
 use cairo_lang_syntax::node::db::SyntaxGroup;
 use cairo_lang_syntax::node::{ast, TypedSyntaxNode};
 
-pub type Type<'a> = DbTns<'a, ast::GenericParamType>;
-pub type Const<'a> = DbTns<'a, ast::GenericParamConst>;
-pub type ImplNamed<'a> = DbTns<'a, ast::GenericParamImplNamed>;
-pub type ImplAnonymous<'a> = DbTns<'a, ast::GenericParamImplAnonymous>;
-pub type NegativeImpl<'a> = DbTns<'a, ast::GenericParamNegativeImpl>;
+pub type Type<'a> = TypedSyntaxElement<'a, ast::GenericParamType>;
+pub type Const<'a> = TypedSyntaxElement<'a, ast::GenericParamConst>;
+pub type ImplNamed<'a> = TypedSyntaxElement<'a, ast::GenericParamImplNamed>;
+pub type ImplAnonymous<'a> = TypedSyntaxElement<'a, ast::GenericParamImplAnonymous>;
+pub type NegativeImpl<'a> = TypedSyntaxElement<'a, ast::GenericParamNegativeImpl>;
 
 pub enum GenericParam<'a> {
     Type(Type<'a>),

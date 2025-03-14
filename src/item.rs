@@ -1,10 +1,7 @@
 use crate::function::Function;
 use crate::generic_param::option_wrapped_generic_params_to_vec;
 use crate::syntax_element::ToTypedSyntaxElementLike;
-use crate::{
-    element_list_to_vec, DbSyntaxNode, DbTypedSyntaxNode, DynDbSyntaxNode, Expression,
-    GenericParam, NewDbTypedSyntaxNode, TypedSyntaxElement, Visibility,
-};
+use crate::{CreateElement, Expression, GenericParam, SyntaxElementTrait, TypedSyntaxElement, Visibility};
 use cairo_lang_syntax::node::db::SyntaxGroup;
 use cairo_lang_syntax::node::kind::SyntaxKind;
 use cairo_lang_syntax::node::{ast, SyntaxNode, Terminal, Token, TypedSyntaxNode};
@@ -82,42 +79,31 @@ impl<'a> ToTypedSyntaxElementLike<'a> for Item<'a> {
 
 impl Constant<'_> {
     pub fn attributes(&self) -> Vec<Attribute> {
-        self.child_to_vec::<1, Attribute>(ast::ItemConstant::INDEX_ATTRIBUTES)
+        self.get_child_vec::<{ ast::ItemConstant::INDEX_ATTRIBUTES }, 1, Attribute>()
     }
     pub fn visibility(&self) -> Visibility {
-        let kind = self.get_kind_of_child(ast::ItemConstant::INDEX_VISIBILITY);
-        match kind {
-            SyntaxKind::VisibilityDefault => Visibility::Pub,
-            SyntaxKind::VisibilityPub => Visibility::Default,
-            _ => panic!(
-                "Unexpected syntax kind {:?} when constructing {}.",
-                kind, "Visibility"
-            ),
-        }
+        self.get_child_element::<{ ast::ItemConstant::INDEX_VISIBILITY }>()
     }
     pub fn name(&self) -> String {
         let tsn: ast::TerminalIdentifier =
-            self.get_child_typed_syntax_node(ast::ItemConstant::INDEX_NAME);
+            self.get_child_typed_syntax_node::<{ ast::ItemConstant::INDEX_NAME }>();
         tsn.token(self.db).text(self.db).to_string()
     }
     pub fn ty(&self) -> Expression {
-        self.get_child_typed_syntax_element(ast::ItemConstant::INDEX_TYPE_CLAUSE)
+        self.get_child_typed_syntax_element::<{ ast::ItemConstant::INDEX_TYPE_CLAUSE }, _>()
     }
 
     pub fn value(&self) -> Expression {
-        self.get_child_typed_syntax_element(ast::ItemConstant::INDEX_VALUE)
+        self.get_child_typed_syntax_element::<{ ast::ItemConstant::INDEX_VALUE }, _>()
     }
 }
 
 impl Module<'_> {
     pub fn attributes(&self) -> Vec<Attribute> {
-        element_list_to_vec(self.db(), self.tsn.attributes(self.db()))
+        self.get_child_vec::<{ ast::ItemModule::INDEX_ATTRIBUTES }, 1, Attribute>()
     }
     pub fn visibility(&self) -> Visibility {
-        match self.tsn.visibility(self.db()) {
-            ast::Visibility::Pub(_) => Visibility::Pub,
-            ast::Visibility::Default(_) => Visibility::Default,
-        }
+        self.get_child_element::<{ ast::ItemModule::INDEX_VISIBILITY }>()
     }
     pub fn name(&self) -> String {
         self.tsn.name(self.db()).text(self.db()).to_string()
@@ -131,11 +117,18 @@ impl Module<'_> {
 }
 
 impl Struct<'_> {
+    pub const INDEX_VISIBILITY: usize = ast::ItemStruct::INDEX_VISIBILITY;
+    pub const INDEX_ATTRIBUTES: usize = ast::ItemStruct::INDEX_ATTRIBUTES;
+    pub const INDEX_VISIBILITY: usize = ast::ItemStruct::INDEX_VISIBILITY;
+    pub const INDEX_STRUCT_KW: usize = ast::ItemStruct::INDEX_STRUCT_KW;
+    pub const INDEX_NAME: usize = ast::ItemStruct::INDEX_NAME;
+    pub const INDEX_GENERIC_PARAMS: usize = ast::ItemStruct::INDEX_GENERIC_PARAMS;
+    pub const INDEX_LBRACE: usize = ast::ItemStruct::INDEX_LBRACE;
+    pub const INDEX_MEMBERS: usize = ast::ItemStruct::INDEX_MEMBERS;
+    pub const INDEX_RBRACE: usize = ast::ItemStruct::INDEX_RBRACE;
+    
     pub fn visibility(&self) -> Visibility {
-        match self.tsn.visibility(self.db()) {
-            ast::Visibility::Pub(_) => Visibility::Pub,
-            ast::Visibility::Default(_) => Visibility::Default,
-        }
+        self.get_child_element::<{ Self::INDEX_VISIBILITY }>()
     }
     pub fn name(&self) -> String {
         self.tsn.name(self.db()).text(self.db()).to_string()
@@ -144,17 +137,13 @@ impl Struct<'_> {
         option_wrapped_generic_params_to_vec(self.db(), self.tsn.generic_params(self.db()))
     }
     pub fn members(&self) -> Vec<Member> {
-        let list = self.tsn.members(self.db());
-        element_list_to_vec(self.db(), list)
+        self.get_child_vec::<{ Self::INDEX_MEMBERS }>()
     }
 }
 
 impl Enum<'_> {
     pub fn visibility(&self) -> Visibility {
-        match self.tsn.visibility(self.db()) {
-            ast::Visibility::Pub(_) => Visibility::Pub,
-            ast::Visibility::Default(_) => Visibility::Default,
-        }
+        Visibility::from_parent_typed_syntax_element::<{ast::ItemEnum::INDEX_VISIBILITY}, >(self)
     }
     pub fn name(&self) -> String {
         self.tsn.name(self.db()).text(self.db()).to_string()
@@ -163,6 +152,7 @@ impl Enum<'_> {
         option_wrapped_generic_params_to_vec(self.db(), self.tsn.generic_params(self.db()))
     }
     pub fn variants(&self) -> Vec<Variant> {
+        self.get_child_vec::<{ ast::ItemStruct::INDEX_MEMBERS }>()
         element_list_to_vec(self.db(), self.tsn.variants(self.db()))
     }
 }

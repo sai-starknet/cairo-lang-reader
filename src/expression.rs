@@ -1,10 +1,8 @@
-use crate::syntax_element::{get_child, syntax_node_to_vec, ToTypedSyntaxElementLike};
-use crate::{element_list_to_vec, DynDbSyntaxNode};
-
-use super::{DbSyntaxNode, DbTypedSyntaxNode, NewDbTypedSyntaxNode, TypedSyntaxElement};
+use crate::syntax_element::syntax_node_to_vec;
+use crate::{CreateElement, SyntaxElementTrait, TypedSyntaxElement};
 use cairo_lang_syntax::node::db::SyntaxGroup;
 use cairo_lang_syntax::node::kind::SyntaxKind;
-use cairo_lang_syntax::node::{ast, SyntaxNode, TypedSyntaxNode};
+use cairo_lang_syntax::node::{ast, SyntaxNode};
 
 pub type Path<'a> = TypedSyntaxElement<'a, ast::ExprPath>;
 pub type Literal<'a> = TypedSyntaxElement<'a, ast::TerminalLiteralNumber>;
@@ -60,8 +58,8 @@ pub enum Expression<'a> {
     Missing(ExprMissing<'a>),
 }
 
-impl<'a> ToTypedSyntaxElementLike<'a> for Expression<'a> {
-    fn to_typed_syntax_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Expression<'a> {
+impl<'a> CreateElement<'a> for Expression<'a> {
+    fn create_element(db: &'a dyn SyntaxGroup, node: &SyntaxNode) -> Expression<'a> {
         let kind = node.kind(db);
         match kind {
             SyntaxKind::ExprPath => Expression::Path(Path::from_syntax_node(db, node)),
@@ -118,11 +116,8 @@ impl<'a> ToTypedSyntaxElementLike<'a> for Expression<'a> {
     }
 }
 
-impl<'a> ToTypedSyntaxElementLike<'a> for Option<Expression<'a>> {
-    fn to_typed_syntax_element(
-        db: &'a dyn SyntaxGroup,
-        node: SyntaxNode,
-    ) -> Option<Expression<'a>> {
+impl<'a> CreateElement<'a> for Option<Expression<'a>> {
+    fn create_element(db: &'a dyn SyntaxGroup, node: &SyntaxNode) -> Option<Expression<'a>> {
         let kind = node.kind(db);
         match kind {
             SyntaxKind::OptionTypeClauseEmpty => None,

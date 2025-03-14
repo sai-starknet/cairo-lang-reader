@@ -1,5 +1,8 @@
 use crate::syntax_element::ToTypedSyntaxElementLike;
-use crate::{element_list_to_vec, expression, Expression, TypedSyntaxElement};
+use crate::{
+    expression, CreateElement, Expression, NodeToChildElement, NodeToElement, SyntaxElementTrait,
+    TypedSyntaxElement,
+};
 use cairo_lang_syntax::node::db::SyntaxGroup;
 use cairo_lang_syntax::node::kind::SyntaxKind;
 use cairo_lang_syntax::node::SyntaxNode;
@@ -22,12 +25,9 @@ pub enum Modifier {
     Mut,
 }
 
-impl Visibility {
-    pub fn from_parent_typed_syntax_element<TSN: TypedSyntaxNode>(
-        parent: TypedSyntaxElement<TSN>,
-        index: usize,
-    ) -> Visibility {
-        let kind = parent.get_kind_of_child(index);
+impl CreateElement<'_> for Visibility {
+    fn create_element(db: &dyn SyntaxGroup, node: &SyntaxNode) -> Visibility {
+        let kind = node.kind(db);
         match kind {
             SyntaxKind::VisibilityDefault => Visibility::Pub,
             SyntaxKind::VisibilityPub => Visibility::Default,
@@ -38,6 +38,22 @@ impl Visibility {
         }
     }
 }
+
+// impl Visibility {
+//     pub fn from_parent_typed_syntax_element<const INDEX: usize, TSN: TypedSyntaxNode>(
+//         parent: &TypedSyntaxElement<TSN>,
+//     ) -> Visibility {
+//         let kind = parent.get_child_kind::<INDEX>();
+//         match kind {
+//             SyntaxKind::VisibilityDefault => Visibility::Pub,
+//             SyntaxKind::VisibilityPub => Visibility::Default,
+//             _ => panic!(
+//                 "Unexpected syntax kind {:?} when constructing {}.",
+//                 kind, "Visibility"
+//             ),
+//         }
+//     }
+// }
 
 impl Attribute<'_> {
     pub fn attr(&self) -> expression::Path {
@@ -50,19 +66,13 @@ impl Attribute<'_> {
 
 impl Param<'_> {
     pub fn modifiers(&self) -> Vec<Modifier> {
-        ast_modifiers_to_modifier(self.db, self.node.modifiers(self.db))
+        self.get_child_vec::<ast::Param::INDEX_MODIFIERS, 1>()
     }
     pub fn name(&self) -> String {
         self.node.name(self.db).text(self.db).to_string()
     }
     pub fn ty(&self) -> Option<Expression> {
-        self.get_child_typed_syntax_element(2)
-    }
-}
-
-impl TerminalIdentifier<'_> {
-    pub fn text(&self) -> String {
-        let tsn: ast::TokenIdentifier = self.get_child_typed_syntax_node(1);
+        self.get_child_typed_syntax_element::<ast::Param::INDEX_TYPE_CLAUSE>()
     }
 }
 
@@ -78,20 +88,16 @@ pub fn option_args_parenthesized_to_vec<'a>(
     }
 }
 
-pub fn ast_modifiers_to_modifier<'a>(
-    db: &'a dyn SyntaxGroup,
-    modifier_list: ast::ModifierList,
-) -> Vec<Modifier> {
-    modifier_list
-        .elements(db)
-        .iter()
-        .map(|m| match m {
-            ast::Modifier::Ref(_) => Modifier::Ref,
-            ast::Modifier::Mut(_) => Modifier::Mut,
-        })
-        .collect()
-}
-
-fn type_clause_to_expression<'a>(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Expression<'a> {
-    Expression::to_child_typed_syntax_element(db, node, ast::TypeClause::INDEX_TY)
+impl<'a> ToTypedSyntaxElementLike<'a> for Modifier {
+    fn to_typed_syntax_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Modifier {
+        let kind = node.kind(db);
+        match kind {
+            SyntaxKind::TerminalRef => Modifier::Ref,
+            SyntaxKind::TerminalMut => Modifier::Mut,
+            _ => panic!(
+                "Unexpected syntax kind {:?} when constructing {}.",
+                kind, "Modifier"
+            ),
+        }
+    }
 }
