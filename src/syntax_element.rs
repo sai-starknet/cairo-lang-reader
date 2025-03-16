@@ -68,29 +68,32 @@ pub fn child_syntax_node_to_vec<
 //     }
 // }
 
-pub trait NodeToElement<'a, TSN: TypedSyntaxNode>: CreateElement<'a> {
-    fn node_to_element(db: &'a dyn SyntaxGroup, node: &SyntaxNode) -> Self {
-        Self::create_element(db, node)
+pub trait NodeToElement<'a, TSN> {
+    fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Self;
+    fn child_node_to_element<const INDEX: usize>(
+        db: &'a dyn SyntaxGroup,
+        node: SyntaxNode,
+    ) -> Self {
+        Self::node_to_element(db, get_child::<INDEX>(db, node))
     }
 }
 
-pub trait NodeToChildElement<'a, TSN: TypedSyntaxNode>: CreateElement<'a> {
-    fn node_to_child_element<const INDEX: usize>(
-        db: &'a dyn SyntaxGroup,
-        node: &SyntaxNode,
-    ) -> Self;
-}
-
 pub trait CreateElement<'a> {
-    fn create_element(db: &'a dyn SyntaxGroup, node: &SyntaxNode) -> Self;
+    fn create_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Self;
 }
 
 impl<'a, T> CreateElement<'a> for T
 where
     T: SyntaxElementTrait<'a>,
 {
-    fn create_element(db: &dyn SyntaxGroup, node: &SyntaxNode) -> Self {
-        T::from_syntax_node(db, node.clone())
+    fn create_element(db: &dyn SyntaxGroup, node: SyntaxNode) -> Self {
+        T::from_syntax_node(db, node)
+    }
+}
+
+impl<'a, TSN: TypedSyntaxNode> NodeToElement<'a, TSN> for TypedSyntaxElement<'a, TSN> {
+    fn node_to_element(db: &dyn SyntaxGroup, node: SyntaxNode) -> Self {
+        Self::from_syntax_node(db, node)
     }
 }
 
@@ -106,45 +109,53 @@ where
 pub trait SyntaxElementTrait<'a> {
     fn from_syntax_node(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Self;
     fn get_db(&self) -> &'a dyn SyntaxGroup;
-    fn get_node(&self) -> &SyntaxNode;
+    fn get_syntax_node(&self) -> SyntaxNode;
     fn to_syntax_node(self) -> SyntaxNode;
+
     fn get_children(&self) -> Arc<[SyntaxNode]>;
     fn patch_builder(&self) -> PatchBuilder;
-    fn get_child_syntax_node<const INDEX: usize>(&self) -> SyntaxNode;
+    fn get_child<const INDEX: usize>(&self) -> SyntaxNode;
     fn get_child_kind<const INDEX: usize>(&self) -> SyntaxKind;
     fn get_child_element<const INDEX: usize, TSN: TypedSyntaxNode, T: NodeToElement<'a, TSN>>(
         &self,
     );
-    fn get_child_typed_syntax_element<const INDEX: usize, TSN, TSE: NodeToElement<'a, TSN>>(
-        &self,
-    ) -> TSE;
-
+    fn as_element(&self) -> impl CreateElement<'a> {
+        CreateElement::create_element(self.get_db(), self.get_syntax_node())
+    }
+    fn to_element(self) -> impl CreateElement<'a> {
+        CreateElement::create_element(self.get_db(), self.to_syntax_node())
+    }
     fn from_typed_syntax_node<TSN: TypedSyntaxNode>(db: &'a dyn SyntaxGroup, node: TSN) -> Self
     where
         Self: Sized,
     {
         Self::from_syntax_node(db, node.as_syntax_node())
     }
-    fn as_syntax_node(&self) -> SyntaxNode {
-        self.get_node().clone()
-    }
-    fn as_typed_syntax_node<TSN: TypedSyntaxNode>(&self) -> TSN {
+    fn as_typed_syntax_node<TSN: TypedSyntaxNode>(self) -> TSN {
         TSN::from_syntax_node(self.get_db(), self.as_syntax_node())
     }
-    fn to_typed_syntax_node<TSN: TypedSyntaxNode>(self) -> TSN
-    where
-        Self: Sized,
-    {
-        TSN::from_syntax_node(self.get_db(), self.to_syntax_node())
-    }
-    fn get_child_typed_syntax_node<const INDEX: usize, C: TypedSyntaxNode>(&self) -> C {
-        C::from_syntax_node(self.get_db(), self.get_child_syntax_node::<INDEX>())
+    fn get_child_typed_syntax_node<const INDEX: usize, TSN: TypedSyntaxNode>(&self) -> TSN {
+        TSN::from_syntax_node(self.get_db(), self.get_child_syntax_node::<INDEX>())
     }
 
     fn get_child_vec<const INDEX: usize, const STEP: usize, TSN, TSE: NodeToElement<'a, TSN>>(
         &self,
     ) -> Vec<TSE> {
         syntax_node_to_vec::<STEP, TSN>(self.get_db(), self.get_child_syntax_node::<INDEX>())
+    }
+    fn get_grand_child_vec<
+        const INDEX: usize,
+        const G_INDEX: usize,
+        const STEP: usize,
+        TSN,
+        TSE: NodeToElement<'a, TSN>,
+    >(
+        &self,
+    ) -> Vec<TSE> {
+        child_syntax_node_to_vec::<G_INDEX, STEP, TSN, TSE>(
+            self.get_db(),
+            self.get_child::<INDEX>(),
+        )
     }
     fn offset(&self) -> TextOffset {
         self.get_node().offset()
@@ -219,33 +230,29 @@ impl<'a> SyntaxElementTrait<'a> for SyntaxElement<'a> {
     fn get_db(&self) -> &'a dyn SyntaxGroup {
         self.db
     }
-    fn get_node(&self) -> &SyntaxNode {
-        &self.node
+    fn get_syntax_node(&self) -> SyntaxNode {
+        self.node.clone()
     }
     fn to_syntax_node(self) -> SyntaxNode {
-        self.node.clone()
+        self.node
     }
     fn get_children(&self) -> Arc<[SyntaxNode]> {
         self.db.get_children(self.node.clone())
     }
-    fn get_child_syntax_node<const INDEX: usize>(&self) -> SyntaxNode {
-        self.get_children()[INDEX].clone()
+    fn get_child<const INDEX: usize>(&self) -> SyntaxNode {
+        self.get_children()[INDEX]
     }
-    fn patch_builder(&self) -> PatchBuilder {
-        PatchBuilder::new_ex(self.db, &self.node)
-    }
+
     fn get_child_kind<const INDEX: usize>(&self) -> SyntaxKind {
         self.get_child_syntax_node::<INDEX>().kind(self.db)
     }
     fn get_child_element<const INDEX: usize, TSN: TypedSyntaxNode, T: NodeToElement<'a, TSN>>(
         &self,
     ) {
-        T::node_to_element(self.db, &self.get_child_syntax_node::<INDEX>())
+        T::node_to_element(self.db, self.get_child_syntax_node::<INDEX>())
     }
-    fn get_child_typed_syntax_element<const INDEX: usize, TSN, TSE: NodeToElement<'a, TSN>>(
-        &self,
-    ) -> TSE {
-        TSE::node_to_element(self.get_db(), &self.get_child_syntax_node::<INDEX>())
+    fn patch_builder(&self) -> PatchBuilder {
+        PatchBuilder::new_ex(self.db, &self.node)
     }
 }
 
@@ -261,17 +268,17 @@ impl<'a, TSN: TypedSyntaxNode> SyntaxElementTrait<'a> for TypedSyntaxElement<'a,
     fn get_db(&self) -> &'a dyn SyntaxGroup {
         self.db
     }
-    fn get_node(&self) -> &SyntaxNode {
-        &self.node
+    fn get_syntax_node(&self) -> SyntaxNode {
+        self.node
     }
     fn to_syntax_node(self) -> SyntaxNode {
-        self.node.clone()
+        self.node
     }
     fn get_children(&self) -> Arc<[SyntaxNode]> {
-        self.children.clone()
+        self.children
     }
-    fn get_child_syntax_node<const INDEX: usize>(&self) -> SyntaxNode {
-        self.get_children()[INDEX].clone()
+    fn get_child<const INDEX: usize>(&self) -> SyntaxNode {
+        self.children[INDEX]
     }
     fn get_child_kind<const INDEX: usize>(&self) -> SyntaxKind {
         self.children[INDEX].kind(self.db)
@@ -284,11 +291,6 @@ impl<'a, TSN: TypedSyntaxNode> SyntaxElementTrait<'a> for TypedSyntaxElement<'a,
     ) {
         T::node_to_element(self.db, self.get_child::<INDEX>())
     }
-    fn get_child_typed_syntax_element<const INDEX: usize, CTSN, TSE: NodeToElement<'a, CTSN>>(
-        &self,
-    ) -> TSE {
-        TSE::node_to_element(self.get_db(), self.get_child::<INDEX>())
-    }
 }
 
 impl<'a> SyntaxElement<'a> {
@@ -298,6 +300,9 @@ impl<'a> SyntaxElement<'a> {
     pub fn to_typed_syntax_element<TNS: TypedSyntaxNode>(self) -> TypedSyntaxElement<'a, TNS> {
         TypedSyntaxElement::from_syntax_node(self.db, self.node)
     }
+    fn get_child<const INDEX: usize>(&self) -> &SyntaxNode {
+        self.get_children().get(INDEX).unwrap()
+    }
 }
 
 impl<'a, TSN: TypedSyntaxNode> TypedSyntaxElement<'a, TSN> {
@@ -306,9 +311,6 @@ impl<'a, TSN: TypedSyntaxNode> TypedSyntaxElement<'a, TSN> {
     }
     pub fn to_syntax_element(self) -> SyntaxElement<'a> {
         SyntaxElement::from_syntax_node(self.db, self.node)
-    }
-    pub fn get_child<const INDEX: usize>(&self) -> &SyntaxNode {
-        self.children.get(INDEX).unwrap()
     }
 }
 

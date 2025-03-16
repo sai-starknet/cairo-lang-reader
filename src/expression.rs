@@ -1,5 +1,5 @@
 use crate::syntax_element::syntax_node_to_vec;
-use crate::{CreateElement, SyntaxElementTrait, TypedSyntaxElement};
+use crate::{NodeToElement, SyntaxElementTrait, TypedSyntaxElement};
 use cairo_lang_syntax::node::db::SyntaxGroup;
 use cairo_lang_syntax::node::kind::SyntaxKind;
 use cairo_lang_syntax::node::{ast, SyntaxNode};
@@ -58,8 +58,28 @@ pub enum Expression<'a> {
     Missing(ExprMissing<'a>),
 }
 
-impl<'a> CreateElement<'a> for Expression<'a> {
-    fn create_element(db: &'a dyn SyntaxGroup, node: &SyntaxNode) -> Expression<'a> {
+impl<'a> NodeToElement<'a, ast::OptionTypeClause> for Option<Expression<'a>> {
+    fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Option<Expression<'a>> {
+        let kind = node.kind(db);
+        match kind {
+            SyntaxKind::OptionTypeClauseEmpty => None,
+            SyntaxKind::TypeClause => Some(NodeToElement::node_to_element(db, node)),
+            _ => panic!(
+                "Unexpected syntax kind {:?} when constructing {}.",
+                kind, "OptionTypeClause"
+            ),
+        }
+    }
+}
+
+impl<'a> NodeToElement<'a, ast::TypeClause> for Expression<'a> {
+    fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Expression<'a> {
+        NodeToElement::<'a, ast::Expr>::child_node_to_element::<1>(db, node)
+    }
+}
+
+impl<'a> NodeToElement<'a, ast::Expr> for Expression<'a> {
+    fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Expression<'a> {
         let kind = node.kind(db);
         match kind {
             SyntaxKind::ExprPath => Expression::Path(Path::from_syntax_node(db, node)),
@@ -111,20 +131,6 @@ impl<'a> CreateElement<'a> for Expression<'a> {
             _ => panic!(
                 "Unexpected syntax kind {:?} when constructing {}.",
                 kind, "Expression"
-            ),
-        }
-    }
-}
-
-impl<'a> CreateElement<'a> for Option<Expression<'a>> {
-    fn create_element(db: &'a dyn SyntaxGroup, node: &SyntaxNode) -> Option<Expression<'a>> {
-        let kind = node.kind(db);
-        match kind {
-            SyntaxKind::OptionTypeClauseEmpty => None,
-            SyntaxKind::TypeClause => Some(Expression::to_child_typed_syntax_element(db, node, 1)),
-            _ => panic!(
-                "Unexpected syntax kind {:?} when constructing {}.",
-                kind, "OptionTypeClause"
             ),
         }
     }

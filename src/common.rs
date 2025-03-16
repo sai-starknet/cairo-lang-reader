@@ -1,12 +1,9 @@
-use crate::syntax_element::ToTypedSyntaxElementLike;
-use crate::{
-    expression, CreateElement, Expression, NodeToChildElement, NodeToElement, SyntaxElementTrait,
-    TypedSyntaxElement,
-};
+use crate::syntax_element::child_syntax_node_to_vec;
+use crate::{expression, Expression, NodeToElement, SyntaxElementTrait, TypedSyntaxElement};
+use cairo_lang_syntax::node::ast;
 use cairo_lang_syntax::node::db::SyntaxGroup;
 use cairo_lang_syntax::node::kind::SyntaxKind;
 use cairo_lang_syntax::node::SyntaxNode;
-use cairo_lang_syntax::node::{ast, TypedSyntaxNode};
 
 pub type Attribute<'a> = TypedSyntaxElement<'a, ast::Attribute>;
 pub type Arg<'a> = TypedSyntaxElement<'a, ast::Arg>;
@@ -25,8 +22,8 @@ pub enum Modifier {
     Mut,
 }
 
-impl CreateElement<'_> for Visibility {
-    fn create_element(db: &dyn SyntaxGroup, node: &SyntaxNode) -> Visibility {
+impl NodeToElement<'_, ast::Visibility> for Visibility {
+    fn node_to_element(db: &dyn SyntaxGroup, node: SyntaxNode) -> Visibility {
         let kind = node.kind(db);
         match kind {
             SyntaxKind::VisibilityDefault => Visibility::Pub,
@@ -39,57 +36,8 @@ impl CreateElement<'_> for Visibility {
     }
 }
 
-// impl Visibility {
-//     pub fn from_parent_typed_syntax_element<const INDEX: usize, TSN: TypedSyntaxNode>(
-//         parent: &TypedSyntaxElement<TSN>,
-//     ) -> Visibility {
-//         let kind = parent.get_child_kind::<INDEX>();
-//         match kind {
-//             SyntaxKind::VisibilityDefault => Visibility::Pub,
-//             SyntaxKind::VisibilityPub => Visibility::Default,
-//             _ => panic!(
-//                 "Unexpected syntax kind {:?} when constructing {}.",
-//                 kind, "Visibility"
-//             ),
-//         }
-//     }
-// }
-
-impl Attribute<'_> {
-    pub fn attr(&self) -> expression::Path {
-        expression::Path::from_syntax_node(self.db, self.node.attr(self.db))
-    }
-    pub fn arguments(&self) -> Vec<Arg> {
-        option_args_parenthesized_to_vec(self.db, self.node.arguments(self.db))
-    }
-}
-
-impl Param<'_> {
-    pub fn modifiers(&self) -> Vec<Modifier> {
-        self.get_child_vec::<ast::Param::INDEX_MODIFIERS, 1>()
-    }
-    pub fn name(&self) -> String {
-        self.node.name(self.db).text(self.db).to_string()
-    }
-    pub fn ty(&self) -> Option<Expression> {
-        self.get_child_typed_syntax_element::<ast::Param::INDEX_TYPE_CLAUSE>()
-    }
-}
-
-pub fn option_args_parenthesized_to_vec<'a>(
-    db: &'a dyn SyntaxGroup,
-    option_args_parenthesized: ast::OptionArgListParenthesized,
-) -> Vec<Arg<'a>> {
-    match option_args_parenthesized {
-        ast::OptionArgListParenthesized::Empty(_) => vec![],
-        ast::OptionArgListParenthesized::ArgListParenthesized(node) => {
-            element_list_to_vec(db, node.arguments(db))
-        }
-    }
-}
-
-impl<'a> ToTypedSyntaxElementLike<'a> for Modifier {
-    fn to_typed_syntax_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Modifier {
+impl NodeToElement<'_, ast::Modifier> for Modifier {
+    fn node_to_element(db: &dyn SyntaxGroup, node: SyntaxNode) -> Modifier {
         let kind = node.kind(db);
         match kind {
             SyntaxKind::TerminalRef => Modifier::Ref,
@@ -99,5 +47,74 @@ impl<'a> ToTypedSyntaxElementLike<'a> for Modifier {
                 kind, "Modifier"
             ),
         }
+    }
+}
+
+impl Attribute<'_> {
+    pub const INDEX_HASH: usize = ast::Attribute::INDEX_HASH;
+    pub const INDEX_LBRACK: usize = ast::Attribute::INDEX_LBRACK;
+    pub const INDEX_ATTR: usize = ast::Attribute::INDEX_ATTR;
+    pub const INDEX_ARGUMENTS: usize = ast::Attribute::INDEX_ARGUMENTS;
+    pub const INDEX_RBRACK: usize = ast::Attribute::INDEX_RBRACK;
+    pub fn attr(&self) -> expression::Path {
+        self.get_child_element::<Self::INDEX_ATTRS, ast::ExprPath>();
+    }
+    pub fn arguments(&self) -> Vec<Arg> {
+        self.get_grand_child_vec::<Self::INDEX_ARGUMENTS, 1, 2, ast::Arg>()
+    }
+}
+
+impl Param<'_> {
+    pub const INDEX_MODIFIERS: usize = ast::Param::INDEX_MODIFIERS;
+    pub const INDEX_NAME: usize = ast::Param::INDEX_NAME;
+    pub const INDEX_TYPE_CLAUSE: usize = ast::Param::INDEX_TYPE_CLAUSE;
+
+    pub fn modifiers(&self) -> Vec<Modifier> {
+        self.get_child_vec::<Self::INDEX_MODIFIERS, 1>()
+    }
+    pub fn name(&self) -> String {
+        self.node.name(self.db).text(self.db).to_string()
+    }
+    pub fn ty(&self) -> Option<Expression> {
+        self.get_child_typed_syntax_element::<Self::INDEX_TYPE_CLAUSE>()
+    }
+}
+
+impl Arg<'_> {
+    pub const INDEX_MODIFIERS: usize = ast::Arg::INDEX_MODIFIERS;
+    pub const INDEX_ARG_CLAUSE: usize = ast::Arg::INDEX_ARG_CLAUSE;
+    pub const LIST_STEP: usize = 2;
+
+    pub fn modifiers(&self, db: &dyn SyntaxGroup) -> Vec<Modifier> {
+        self.get_child_vec::<Self::INDEX_MODIFIERS, ast::Modifier>()
+    }
+    // pub fn arg_clause(&self, db: &dyn SyntaxGroup) -> ArgClause {
+    //     ArgClause::from_syntax_node(db, self.children[1].clone())
+    // }
+}
+
+impl<'a, E: NodeToElement<'a, ast::Arg>> NodeToElement<'a, ast::OptionArgListParenthesized>
+    for Vec<E>
+{
+    fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Self {
+        let kind = node.kind(db);
+        match kind {
+            SyntaxKind::OptionArgListParenthesizedEmpty => vec![],
+            SyntaxKind::ArgListParenthesized => {
+                NodeToElement::<'a, ast::ArgListParenthesized>::node_to_element(db, node)
+            }
+            _ => panic!(
+                "Unexpected syntax kind {:?} when constructing {}.",
+                kind, "OptionArgListParenthesized"
+            ),
+        }
+    }
+}
+
+impl<'a, E: NodeToElement<'a, ast::Arg>> NodeToElement<'a, ast::ArgListParenthesized> for Vec<E> {
+    fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Self {
+        child_syntax_node_to_vec::<ast::ArgListParenthesized::INDEX_ARGUMENTS, 2, ast::Arg>(
+            db, node,
+        )
     }
 }
