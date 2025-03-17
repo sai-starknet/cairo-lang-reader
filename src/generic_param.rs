@@ -1,12 +1,16 @@
-use crate::TypedSyntaxElement;
+use crate::{NodeToElement, TypedSyntaxElement};
 use cairo_lang_syntax::node::db::SyntaxGroup;
-use cairo_lang_syntax::node::{ast, TypedSyntaxNode};
+use cairo_lang_syntax::node::element_list::ElementList;
+use cairo_lang_syntax::node::kind::SyntaxKind;
+use cairo_lang_syntax::node::{ast, SyntaxNode, TypedSyntaxNode};
 
 pub type Type<'a> = TypedSyntaxElement<'a, ast::GenericParamType>;
 pub type Const<'a> = TypedSyntaxElement<'a, ast::GenericParamConst>;
 pub type ImplNamed<'a> = TypedSyntaxElement<'a, ast::GenericParamImplNamed>;
 pub type ImplAnonymous<'a> = TypedSyntaxElement<'a, ast::GenericParamImplAnonymous>;
 pub type NegativeImpl<'a> = TypedSyntaxElement<'a, ast::GenericParamNegativeImpl>;
+
+pub type OptionWrappedGenericParamList = TypedSyntaxElement<ast::OptionWrappedGenericParamList>;
 
 pub enum GenericParam<'a> {
     Type(Type<'a>),
@@ -16,51 +20,55 @@ pub enum GenericParam<'a> {
     NegativeImpl(NegativeImpl<'a>),
 }
 
-impl<'a> DynDbSyntaxNode<'a> for GenericParam<'a> {
-    fn to_dyn_db_ast_trait(&self) -> &dyn DbSyntaxNode {
-        match self {
-            GenericParam::Type(item) => item,
-            GenericParam::Const(item) => item,
-            GenericParam::ImplNamed(item) => item,
-            GenericParam::ImplAnonymous(item) => item,
-            GenericParam::NegativeImpl(item) => item,
-        }
-    }
-}
-
-impl<'a> NewDbTypedSyntaxNode<'a> for GenericParam<'a> {
-    type TSN = ast::GenericParam;
-    fn new(db: &'a dyn SyntaxGroup, node: ast::GenericParam) -> Self {
+impl<'a> NodeToElement<'a, ast::GenericParam> for GenericParam<'a> {
+    fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Self {
+        let kind = node.kind(db);
         match node {
-            ast::GenericParam::Type(item) => GenericParam::Type(Type::new(db, item)),
-            ast::GenericParam::Const(item) => GenericParam::Const(Const::new(db, item)),
-            ast::GenericParam::ImplNamed(item) => GenericParam::ImplNamed(ImplNamed::new(db, item)),
-            ast::GenericParam::ImplAnonymous(item) => {
-                GenericParam::ImplAnonymous(ImplAnonymous::new(db, item))
+            SyntaxKind::GenericParamType => GenericParam::Type(Type::node_to_element(db, node)),
+            SyntaxKind::GenericParamConst => GenericParam::Const(Const::node_to_element(db, node)),
+            SyntaxKind::GenericParamImplNamed => {
+                GenericParam::ImplNamed(ImplNamed::node_to_element(db, node))
             }
-            ast::GenericParam::NegativeImpl(item) => {
-                GenericParam::NegativeImpl(NegativeImpl::new(db, item))
+            SyntaxKind::GenericParamImplAnonymous => {
+                GenericParam::ImplAnonymous(ImplAnonymous::node_to_element(db, node))
             }
+            SyntaxKind::GenericParamNegativeImpl => {
+                GenericParam::NegativeImpl(NegativeImpl::node_to_element(db, node))
+            }
+            _ => panic!(
+                "Unexpected syntax kind {:?} when constructing {}.",
+                kind, "GenericParam"
+            ),
         }
     }
 }
 
-impl<'a> DbTypedSyntaxNode<'a> for GenericParam<'a> {
-    type TSN = ast::GenericParam;
-    fn typed_syntax_node(&self) -> Self::TSN {
-        ast::GenericParam::from_syntax_node(self.db(), self.syntax_node())
+impl<'a> NodeToElement<'a, ast::GenericParamList> for Vec<GenericParam<'a>> {
+    fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Self {
+        NodeToElement::<'a, ElementList<ast::GenericParam, 2>>::node_to_element(db, node)
     }
 }
 
-pub fn option_wrapped_generic_params_to_vec<'a>(
-    db: &'a dyn SyntaxGroup,
-    option_wrapped_generic_params: ast::OptionWrappedGenericParamList,
-) -> Vec<GenericParam<'a>> {
-    match option_wrapped_generic_params {
-        ast::OptionWrappedGenericParamList::Empty(_) => vec![],
-        ast::OptionWrappedGenericParamList::WrappedGenericParamList(tsn) => {
-            let list = tsn.generic_params(db);
-            element_list_to_vec(db, list)
+impl<'a> NodeToElement<'a, ast::WrappedGenericParamList> for Vec<GenericParam<'a>> {
+    fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Self {
+        NodeToElement::<'a, ast::GenericParamList>::child_node_to_element::<
+            { ast::WrappedGenericParamList::INDEX_GENERIC_PARAMS },
+        >(db, node)
+    }
+}
+
+impl<'a> NodeToElement<'a, ast::OptionWrappedGenericParamList> for Vec<GenericParam<'a>> {
+    fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Self {
+        let kind = node.kind(db);
+        match kind {
+            SyntaxKind::OptionWrappedGenericParamListEmpty => vec![],
+            SyntaxKind::WrappedGenericParamList => {
+                NodeToElement::<'a, ast::WrappedGenericParamList>::node_to_element(db, node)
+            }
+            _ => panic!(
+                "Unexpected syntax kind {:?} when constructing {}.",
+                kind, "OptionWrappedGenericParamList"
+            ),
         }
     }
 }

@@ -24,5 +24,5 @@ pub use common::{Arg, Attribute, Param, Visibility};
 
 pub mod syntax_element;
 pub use syntax_element::{
-    CreateElement, NodeToElement, SyntaxElement, SyntaxElementTrait, TypedSyntaxElement,
+    ElementList, NodeToElement, SyntaxElement, SyntaxElementTrait, TypedSyntaxElement,
 };

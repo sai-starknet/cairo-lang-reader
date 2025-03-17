@@ -1,9 +1,10 @@
-use crate::syntax_element::child_syntax_node_to_vec;
-use crate::{expression, Expression, NodeToElement, SyntaxElementTrait, TypedSyntaxElement};
-use cairo_lang_syntax::node::ast;
+use crate::{
+    expression, ElementList, Expression, NodeToElement, SyntaxElementTrait, TypedSyntaxElement,
+};
 use cairo_lang_syntax::node::db::SyntaxGroup;
 use cairo_lang_syntax::node::kind::SyntaxKind;
-use cairo_lang_syntax::node::SyntaxNode;
+use cairo_lang_syntax::node::{ast, Terminal, Token};
+use cairo_lang_syntax::node::{SyntaxNode, TypedSyntaxNode};
 
 pub type Attribute<'a> = TypedSyntaxElement<'a, ast::Attribute>;
 pub type Arg<'a> = TypedSyntaxElement<'a, ast::Arg>;
@@ -57,10 +58,10 @@ impl Attribute<'_> {
     pub const INDEX_ARGUMENTS: usize = ast::Attribute::INDEX_ARGUMENTS;
     pub const INDEX_RBRACK: usize = ast::Attribute::INDEX_RBRACK;
     pub fn attr(&self) -> expression::Path {
-        self.get_child_element::<Self::INDEX_ATTRS, ast::ExprPath>();
+        self.get_child_element::<{ Attribute::INDEX_ATTR }, ast::ExprPath, expression::Path>()
     }
     pub fn arguments(&self) -> Vec<Arg> {
-        self.get_grand_child_vec::<Self::INDEX_ARGUMENTS, 1, 2, ast::Arg>()
+        self.get_child_element::<{Attribute::INDEX_ARGUMENTS}, ast::OptionArgListParenthesized, _>()
     }
 }
 
@@ -70,13 +71,13 @@ impl Param<'_> {
     pub const INDEX_TYPE_CLAUSE: usize = ast::Param::INDEX_TYPE_CLAUSE;
 
     pub fn modifiers(&self) -> Vec<Modifier> {
-        self.get_child_vec::<Self::INDEX_MODIFIERS, 1>()
+        self.get_child_element::<{ Param::INDEX_MODIFIERS }, ast::ModifierList, _>()
     }
-    pub fn name(&self) -> String {
-        self.node.name(self.db).text(self.db).to_string()
-    }
+    // pub fn name(&self) -> String {
+    //     // self.node.name(self.db).text(self.db).to_string()
+    // }
     pub fn ty(&self) -> Option<Expression> {
-        self.get_child_typed_syntax_element::<Self::INDEX_TYPE_CLAUSE>()
+        self.get_child_element::<{ Param::INDEX_TYPE_CLAUSE }, ast::OptionTypeClause, _>()
     }
 }
 
@@ -85,17 +86,15 @@ impl Arg<'_> {
     pub const INDEX_ARG_CLAUSE: usize = ast::Arg::INDEX_ARG_CLAUSE;
     pub const LIST_STEP: usize = 2;
 
-    pub fn modifiers(&self, db: &dyn SyntaxGroup) -> Vec<Modifier> {
-        self.get_child_vec::<Self::INDEX_MODIFIERS, ast::Modifier>()
+    pub fn modifiers(&self) -> Vec<Modifier> {
+        self.get_child_element::<{ Arg::INDEX_MODIFIERS }, ast::ModifierList, _>()
     }
     // pub fn arg_clause(&self, db: &dyn SyntaxGroup) -> ArgClause {
     //     ArgClause::from_syntax_node(db, self.children[1].clone())
     // }
 }
 
-impl<'a, E: NodeToElement<'a, ast::Arg>> NodeToElement<'a, ast::OptionArgListParenthesized>
-    for Vec<E>
-{
+impl<'a> NodeToElement<'a, ast::OptionArgListParenthesized> for Vec<Arg<'a>> {
     fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Self {
         let kind = node.kind(db);
         match kind {
@@ -111,10 +110,34 @@ impl<'a, E: NodeToElement<'a, ast::Arg>> NodeToElement<'a, ast::OptionArgListPar
     }
 }
 
-impl<'a, E: NodeToElement<'a, ast::Arg>> NodeToElement<'a, ast::ArgListParenthesized> for Vec<E> {
+impl<'a> NodeToElement<'a, ast::ArgListParenthesized> for Vec<Arg<'a>> {
     fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Self {
-        child_syntax_node_to_vec::<ast::ArgListParenthesized::INDEX_ARGUMENTS, 2, ast::Arg>(
-            db, node,
-        )
+        NodeToElement::<'a, ast::ArgList>::child_node_to_element::<
+            { ast::ArgListParenthesized::INDEX_ARGUMENTS },
+        >(db, node)
+    }
+}
+
+impl<'a> NodeToElement<'a, ast::ArgList> for Vec<Arg<'a>> {
+    fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Self {
+        ElementList::<ast::Arg, 2, Arg<'a>>::elements(db, node)
+    }
+}
+
+impl<'a> NodeToElement<'a, ast::ModifierList> for Vec<Modifier> {
+    fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Self {
+        ElementList::<ast::Modifier, 1, Modifier>::elements(db, node)
+    }
+}
+
+impl<'a, T: Token> NodeToElement<'a, T> for String {
+    fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> String {
+        T::from_syntax_node(db, node).text(db).to_string()
+    }
+}
+
+impl<'a, T: Terminal> NodeToElement<'a, T> for String {
+    fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> String {
+        T::TokenType::text(node, db)
     }
 }

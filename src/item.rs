@@ -1,6 +1,4 @@
 use crate::function::Function;
-use crate::generic_param::option_wrapped_generic_params_to_vec;
-use crate::syntax_element::syntax_node_to_vec;
 use crate::{
     Attribute, Expression, GenericParam, NodeToElement, SyntaxElementTrait, TypedSyntaxElement,
     Visibility,
@@ -80,12 +78,6 @@ impl<'a> NodeToElement<'a, ast::ModuleItem> for Item<'a> {
     }
 }
 
-impl<'a, const STEP: usize, E: TypedSyntaxNode> NodeToElement<'a, ElementList<E, STEP>> for Vec<E> {
-    fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Vec<E> {
-        syntax_node_to_vec::<STEP, E>(db, node)
-    }
-}
-
 impl<'a> NodeToElement<'a, ast::ModuleItemList> for Vec<Item<'a>> {
     fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Vec<Item<'a>> {
         syntax_node_to_vec::<1, ast::ModuleItem>(db, node)
@@ -94,26 +86,26 @@ impl<'a> NodeToElement<'a, ast::ModuleItemList> for Vec<Item<'a>> {
 
 impl<'a> NodeToElement<'a, ast::ModuleBody> for Vec<Item<'a>> {
     fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Vec<Item<'a>> {
-        ElementList::<Item<'a>, 1>::child_node_to_element::<ast::ModuleBody::INDEX_ITEMS>(db, node)
+        // ElementList::<Item<'a>, 1>::child_node_to_element::<ast::ModuleBody::INDEX_ITEMS>(db, node)
         // NodeToElement::<'a, ast::ModuleItemList>::child_node_to_element::<
         //     ast::ModuleBody::INDEX_ITEMS,
         // >(db, node)
     }
 }
 
-impl<'a, E: NodeToElement<'a, ast::ModuleBody>> NodeToElement<'a, ast::MaybeModuleBody> for E {
-    fn node_to_element(db: &dyn SyntaxGroup, node: SyntaxNode) -> E {
-        let kind = node.kind(db);
-        match kind {
-            SyntaxKind::TerminalSemicolon => vec![],
-            SyntaxKind::ModuleBody => NodeToElement::<ast::ModuleBody>::node_to_element(db, node),
-            _ => panic!(
-                "Unexpected syntax kind {:?} when constructing {}.",
-                kind, "MaybeModuleBody"
-            ),
-        }
-    }
-}
+// impl<'a, E: NodeToElement<'a, ast::ModuleBody>> NodeToElement<'a, ast::MaybeModuleBody> for E {
+//     fn node_to_element(db: &dyn SyntaxGroup, node: SyntaxNode) -> E {
+//         let kind = node.kind(db);
+//         match kind {
+//             SyntaxKind::TerminalSemicolon => vec![],
+//             SyntaxKind::ModuleBody => NodeToElement::<ast::ModuleBody>::node_to_element(db, node),
+//             _ => panic!(
+//                 "Unexpected syntax kind {:?} when constructing {}.",
+//                 kind, "MaybeModuleBody"
+//             ),
+//         }
+//     }
+// }
 
 impl Constant<'_> {
     pub const INDEX_ATTRIBUTES: usize = ast::ItemConstant::INDEX_ATTRIBUTES;
@@ -137,7 +129,7 @@ impl Constant<'_> {
     //     tsn.token(self.db).text(self.db).to_string()
     // }
     pub fn ty(&self) -> Expression {
-        self.get_child_element::<Self::INDEX_TYPE_CLAUSE, ast::TypeClause>();
+        self.get_child_element::<Self::INDEX_TYPE_CLAUSE, ast::TypeClause>()
     }
 
     pub fn value(&self) -> Expression {
@@ -179,16 +171,17 @@ impl Struct<'_> {
     pub const INDEX_RBRACE: usize = ast::ItemStruct::INDEX_RBRACE;
 
     pub fn visibility(&self) -> Visibility {
-        self.get_child_element::<{ Self::INDEX_VISIBILITY }>()
+        self.get_child_element::<Self::INDEX_VISIBILITY, ast::Visibility>()
     }
     pub fn name(&self) -> String {
         self.tsn.name(self.db()).text(self.db()).to_string()
     }
     pub fn generic_params(&self) -> Vec<GenericParam> {
+        self.get_child_vec
         option_wrapped_generic_params_to_vec(self.db(), self.tsn.generic_params(self.db()))
     }
     pub fn members(&self) -> Vec<Member> {
-        self.get_child_vec::<{ Self::INDEX_MEMBERS }>()
+        self.get_child_vec::<Self::INDEX_MEMBERS>()
     }
 }
 

@@ -1,5 +1,4 @@
-use crate::syntax_element::syntax_node_to_vec;
-use crate::{NodeToElement, SyntaxElementTrait, TypedSyntaxElement};
+use crate::{ElementList, NodeToElement, SyntaxElementTrait, TypedSyntaxElement};
 use cairo_lang_syntax::node::db::SyntaxGroup;
 use cairo_lang_syntax::node::kind::SyntaxKind;
 use cairo_lang_syntax::node::{ast, SyntaxNode};
@@ -63,18 +62,14 @@ impl<'a> NodeToElement<'a, ast::OptionTypeClause> for Option<Expression<'a>> {
         let kind = node.kind(db);
         match kind {
             SyntaxKind::OptionTypeClauseEmpty => None,
-            SyntaxKind::TypeClause => Some(NodeToElement::node_to_element(db, node)),
+            SyntaxKind::TypeClause => {
+                Some(NodeToElement::<'a, ast::Expr>::node_to_element(db, node))
+            }
             _ => panic!(
                 "Unexpected syntax kind {:?} when constructing {}.",
                 kind, "OptionTypeClause"
             ),
         }
-    }
-}
-
-impl<'a> NodeToElement<'a, ast::TypeClause> for Expression<'a> {
-    fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Expression<'a> {
-        NodeToElement::<'a, ast::Expr>::child_node_to_element::<1>(db, node)
     }
 }
 
@@ -96,10 +91,9 @@ impl<'a> NodeToElement<'a, ast::Expr> for Expression<'a> {
             SyntaxKind::ExprUnary => Expression::Unary(Unary::from_syntax_node(db, node)),
             SyntaxKind::ExprBinary => Expression::Binary(Binary::from_syntax_node(db, node)),
             SyntaxKind::ExprListParenthesized => {
-                Expression::Tuple(syntax_node_to_vec::<2, Expression>(
-                    db,
-                    db.get_children(node)[1].clone(),
-                ))
+                Expression::Tuple(
+                    NodeToElement::<'a, ast::ExprListParenthesized>::node_to_element(db, node),
+                )
             }
             SyntaxKind::ExprFunctionCall => {
                 Expression::FunctionCall(FunctionCall::from_syntax_node(db, node))
@@ -133,5 +127,19 @@ impl<'a> NodeToElement<'a, ast::Expr> for Expression<'a> {
                 kind, "Expression"
             ),
         }
+    }
+}
+
+impl<'a> NodeToElement<'a, ast::ExprListParenthesized> for Vec<Expression<'a>> {
+    fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Vec<Expression<'a>> {
+        NodeToElement::<'a, ast::ExprList>::child_node_to_element::<
+            { ast::ExprListParenthesized::INDEX_EXPRESSIONS },
+        >(db, node)
+    }
+}
+
+impl<'a> NodeToElement<'a, ast::ExprList> for Vec<Expression<'a>> {
+    fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Self {
+        ElementList::<ast::Expr, 2, Expression<'a>>::elements(db, node)
     }
 }
