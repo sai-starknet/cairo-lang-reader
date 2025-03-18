@@ -81,8 +81,14 @@ impl<'a> NodeToElement<'a, ast::Expr> for Expression<'a> {
             SyntaxKind::TerminalLiteralNumber => {
                 Expression::Literal(Literal::from_syntax_node(db, node))
             }
-            SyntaxKind::TerminalShortString => Expression::ShortString(todo!("ShortString")),
-            SyntaxKind::TerminalString => Expression::String(todo!("String")),
+            SyntaxKind::TerminalShortString => {
+                Expression::ShortString(NodeToElement::<ast::TerminalShortString>::node_to_element(
+                    db, node,
+                ))
+            }
+            SyntaxKind::TerminalString => Expression::String(
+                NodeToElement::<ast::TerminalString>::node_to_element(db, node),
+            ),
             SyntaxKind::TerminalFalse => Expression::False,
             SyntaxKind::TerminalTrue => Expression::True,
             SyntaxKind::ExprParenthesized => {

@@ -1,3 +1,4 @@
+use crate::syntax_element::get_child;
 use crate::{
     expression, ElementList, Expression, NodeToElement, SyntaxElementTrait, TypedSyntaxElement,
 };
@@ -130,14 +131,13 @@ impl<'a> NodeToElement<'a, ast::ModifierList> for Vec<Modifier> {
     }
 }
 
-impl<'a, T: Token> NodeToElement<'a, T> for String {
+impl<'a, T> NodeToElement<'a, T> for String
+where
+    T: Terminal,
+{
     fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> String {
-        T::from_syntax_node(db, node).text(db).to_string()
-    }
-}
-
-impl<'a, T: Terminal> NodeToElement<'a, T> for String {
-    fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> String {
-        T::TokenType::text(node, db)
+        T::TokenType::from_syntax_node(db, get_child::<1>(db, node))
+            .text(db)
+            .to_string()
     }
 }

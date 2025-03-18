@@ -3,7 +3,7 @@ use cairo_lang_filesystem::span::{TextOffset, TextPosition, TextSpan, TextWidth}
 use cairo_lang_syntax::node::db::SyntaxGroup;
 use cairo_lang_syntax::node::green::GreenNode;
 use cairo_lang_syntax::node::kind::SyntaxKind;
-use cairo_lang_syntax::node::{SyntaxNode, TypedSyntaxNode};
+use cairo_lang_syntax::node::{SyntaxNode, Terminal, TypedSyntaxNode};
 use smol_str::SmolStr;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -30,8 +30,10 @@ pub trait ElementList<'a, TSN, const STEP: usize, E> {
     fn elements(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Self;
 }
 
-impl<'a, TSN: TypedSyntaxNode, const STEP: usize, E: NodeToElement<'a, TSN>>
-    ElementList<'a, TSN, STEP, E> for Vec<E>
+impl<'a, TSN, const STEP: usize, E> ElementList<'a, TSN, STEP, E> for Vec<E>
+where
+    TSN: TypedSyntaxNode,
+    E: NodeToElement<'a, TSN>,
 {
     fn elements(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Self {
         db.get_children(node)
@@ -52,7 +54,7 @@ pub trait NodeToElement<'a, TSN> {
     }
 }
 
-// pub trait NodeToElement<'a, TSN> {
+// pub trait NodeToElement<'a, TSN, E> {
 //     fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> E;
 //     fn child_node_to_element<const INDEX: usize>(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> E
 //     where
@@ -62,17 +64,26 @@ pub trait NodeToElement<'a, TSN> {
 //     }
 // }
 
-pub trait ElementFromNode<'a, TSN> {
-    fn element_from_node(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Self;
-    fn child_node_to_element<const INDEX: usize>(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Self
-    where
-        Self: Sized,
-    {
-        Self::node_to_element(db, get_child::<INDEX>(db, node))
-    }
-}
+// impl<TSN, TypedSyntaxElement> NodeToElement<'_, TypedSyntaxElement<TSN>> for TSN {
+//     fn node_to_element(db: &dyn SyntaxGroup, node: SyntaxNode) -> TypedSyntaxElement<TSN> {
+//         TypedSyntaxElement::from_syntax_node(db, node)
+//     }
+// }
 
-impl<'a, TSN: TypedSyntaxNode> NodeToElement<'a, TSN> for TypedSyntaxElement<'a, TSN> {
+// pub trait ElementFromNode<'a, TSN> {
+//     fn element_from_node(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Self;
+//     fn child_node_to_element<const INDEX: usize>(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Self
+//     where
+//         Self: Sized,
+//     {
+//         Self::node_to_element(db, get_child::<INDEX>(db, node))
+//     }
+// }
+
+impl<'a, TSN> NodeToElement<'a, TSN> for TypedSyntaxElement<'a, TSN>
+where
+    TSN: TypedSyntaxNode,
+{
     fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Self {
         Self::from_syntax_node(db, node)
     }
@@ -92,13 +103,13 @@ pub trait SyntaxElementTrait<'a> {
         E::node_to_element(self.get_db(), self.get_child::<INDEX>())
     }
     fn as_element<TSN, E: NodeToElement<'a, TSN>>(&self) -> E {
-        NodeToElement::<'a, TSN>::node_to_element(self.get_db(), self.get_syntax_node())
+        NodeToElement::node_to_element(self.get_db(), self.get_syntax_node())
     }
     fn to_element<TSN, E: NodeToElement<'a, TSN>>(self) -> E
     where
         Self: Sized,
     {
-        NodeToElement::<'a, TSN>::node_to_element(self.get_db(), self.to_syntax_node())
+        NodeToElement::node_to_element(self.get_db(), self.to_syntax_node())
     }
     fn from_typed_syntax_node<TSN: TypedSyntaxNode>(db: &'a dyn SyntaxGroup, node: TSN) -> Self
     where
@@ -255,5 +266,12 @@ impl<'a, TSN: TypedSyntaxNode> TypedSyntaxElement<'a, TSN> {
     }
     pub fn to_syntax_element(self) -> SyntaxElement<'a> {
         SyntaxElement::from_syntax_node(self.db, self.node)
+    }
+
+    fn terminal_text(&self) -> String
+    where
+        TSN: Terminal,
+    {
+        NodeToElement::<TSN>::node_to_element(self.db, self.node.clone())
     }
 }
