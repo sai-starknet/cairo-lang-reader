@@ -1,6 +1,5 @@
-use crate::{NodeToElement, TypedSyntaxElement};
+use crate::{ElementList, NodeToElement, TypedSyntaxElement};
 use cairo_lang_syntax::node::db::SyntaxGroup;
-use cairo_lang_syntax::node::element_list::ElementList;
 use cairo_lang_syntax::node::kind::SyntaxKind;
 use cairo_lang_syntax::node::{ast, SyntaxNode, TypedSyntaxNode};
 
@@ -10,7 +9,8 @@ pub type ImplNamed<'a> = TypedSyntaxElement<'a, ast::GenericParamImplNamed>;
 pub type ImplAnonymous<'a> = TypedSyntaxElement<'a, ast::GenericParamImplAnonymous>;
 pub type NegativeImpl<'a> = TypedSyntaxElement<'a, ast::GenericParamNegativeImpl>;
 
-pub type OptionWrappedGenericParamList = TypedSyntaxElement<ast::OptionWrappedGenericParamList>;
+pub type OptionWrappedGenericParamList<'a> =
+    TypedSyntaxElement<'a, ast::OptionWrappedGenericParamList>;
 
 pub enum GenericParam<'a> {
     Type(Type<'a>),
@@ -23,7 +23,7 @@ pub enum GenericParam<'a> {
 impl<'a> NodeToElement<'a, ast::GenericParam> for GenericParam<'a> {
     fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Self {
         let kind = node.kind(db);
-        match node {
+        match kind {
             SyntaxKind::GenericParamType => GenericParam::Type(Type::node_to_element(db, node)),
             SyntaxKind::GenericParamConst => GenericParam::Const(Const::node_to_element(db, node)),
             SyntaxKind::GenericParamImplNamed => {
@@ -43,10 +43,9 @@ impl<'a> NodeToElement<'a, ast::GenericParam> for GenericParam<'a> {
     }
 }
 
-impl<'a> NodeToElement<'a, ast::GenericParamList> for Vec<GenericParam<'a>> {
-    fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Self {
-        NodeToElement::<'a, ElementList<ast::GenericParam, 2>>::node_to_element(db, node)
-    }
+impl ElementList for ast::GenericParamList {
+    const STEP: usize = 2;
+    type TSN = ast::GenericParam;
 }
 
 impl<'a> NodeToElement<'a, ast::WrappedGenericParamList> for Vec<GenericParam<'a>> {

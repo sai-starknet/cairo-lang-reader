@@ -3,7 +3,7 @@ use cairo_lang_filesystem::span::{TextOffset, TextPosition, TextSpan, TextWidth}
 use cairo_lang_syntax::node::db::SyntaxGroup;
 use cairo_lang_syntax::node::green::GreenNode;
 use cairo_lang_syntax::node::kind::SyntaxKind;
-use cairo_lang_syntax::node::{SyntaxNode, Terminal, TypedSyntaxNode};
+use cairo_lang_syntax::node::{ast, SyntaxNode, Terminal, TypedSyntaxNode};
 use smol_str::SmolStr;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -26,23 +26,43 @@ pub fn get_child<const INDEX: usize>(db: &dyn SyntaxGroup, node: SyntaxNode) -> 
     db.get_children(node).get(INDEX).unwrap().clone()
 }
 
-pub trait ElementList<'a, TSN, const STEP: usize, E> {
-    fn elements(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Self;
+// pub trait ElementList<'a, const STEP: usize, TSN, E: NodeToElement<'a, TSN>> {
+//     const STEP: usize = STEP;
+
+//     fn elements(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Vec<E> {
+//         db.get_children(node)
+//             .iter()
+//             .step_by(STEP)
+//             .map(|sn| E::node_to_element(db, sn.clone()))
+//             .collect()
+//     }
+// }
+
+pub trait ElementList {
+    const STEP: usize;
+    type TSN: TypedSyntaxNode;
 }
 
-impl<'a, TSN, const STEP: usize, E> ElementList<'a, TSN, STEP, E> for Vec<E>
-where
-    TSN: TypedSyntaxNode,
-    E: NodeToElement<'a, TSN>,
-{
-    fn elements(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Self {
-        db.get_children(node)
-            .iter()
-            .step_by(STEP)
-            .map(|sn| E::node_to_element(db, sn.clone()))
-            .collect()
-    }
-}
+// impl<'a, const STEP: usize, TSN, E: NodeToElement<'a, TSN>> ElementList<'a, E> for TSN {
+//     const STEP: usize = STEP;
+//     fn elements(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Vec<E> {
+//         db.get_children(node)
+//             .iter()
+//             .step_by(STEP)
+//             .map(|sn| E::node_to_element(db, sn.clone()))
+//             .collect()
+//     }
+// }
+
+// pub trait NodeToElement<'a, TSN: TypedSyntaxNode, E> {
+//     fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> E;
+//     fn child_node_to_element<const INDEX: usize>(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> E
+//     where
+//         Self: Sized,
+//     {
+//         Self::node_to_element(db, get_child::<INDEX>(db, node))
+//     }
+// }
 
 pub trait NodeToElement<'a, TSN> {
     fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Self;
@@ -53,6 +73,33 @@ pub trait NodeToElement<'a, TSN> {
         Self::node_to_element(db, get_child::<INDEX>(db, node))
     }
 }
+
+impl<'a, EL: ElementList, E> NodeToElement<'a, EL> for Vec<E>
+where
+    E: NodeToElement<'a, EL::TSN>,
+{
+    fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Vec<E> {
+        db.get_children(node)
+            .iter()
+            .step_by(EL::STEP)
+            .map(|sn| E::node_to_element(db, sn.clone()))
+            .collect()
+    }
+}
+
+// impl<'a, TSN, const STEP: usize, E> ElementList<'a, TSN, STEP, E> for Vec<E>
+// where
+//     TSN: TypedSyntaxNode,
+//     E: NodeToElement<'a, TSN>,
+// {
+//     fn elements(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Self {
+//         db.get_children(node)
+//             .iter()
+//             .step_by(STEP)
+//             .map(|sn| E::node_to_element(db, sn.clone()))
+//             .collect()
+//     }
+// }
 
 // pub trait NodeToElement<'a, TSN, E> {
 //     fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> E;
@@ -79,13 +126,9 @@ pub trait NodeToElement<'a, TSN> {
 //         Self::node_to_element(db, get_child::<INDEX>(db, node))
 //     }
 // }
-
-impl<'a, TSN> NodeToElement<'a, TSN> for TypedSyntaxElement<'a, TSN>
-where
-    TSN: TypedSyntaxNode,
-{
-    fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Self {
-        Self::from_syntax_node(db, node)
+impl<'a, TSN: TypedSyntaxNode> NodeToElement<'a, TSN> for TypedSyntaxElement<'a, TSN> {
+    fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> TypedSyntaxElement<'a, TSN> {
+        TypedSyntaxElement::<'a, TSN>::from_syntax_node(db, node)
     }
 }
 
@@ -102,8 +145,11 @@ pub trait SyntaxElementTrait<'a> {
     fn get_child_element<const INDEX: usize, TSN, E: NodeToElement<'a, TSN>>(&self) -> E {
         E::node_to_element(self.get_db(), self.get_child::<INDEX>())
     }
-    fn as_element<TSN, E: NodeToElement<'a, TSN>>(&self) -> E {
-        NodeToElement::node_to_element(self.get_db(), self.get_syntax_node())
+    fn as_element<TSN, E>(&self) -> E
+    where
+        E: NodeToElement<'a, TSN>,
+    {
+        E::node_to_element(self.get_db(), self.get_syntax_node())
     }
     fn to_element<TSN, E: NodeToElement<'a, TSN>>(self) -> E
     where

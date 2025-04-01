@@ -13,6 +13,26 @@ pub type Param<'a> = TypedSyntaxElement<'a, ast::Param>;
 pub type TerminalIdentifier<'a> = TypedSyntaxElement<'a, ast::TerminalIdentifier>;
 pub type TokenIdentifier<'a> = TypedSyntaxElement<'a, ast::TokenIdentifier>;
 
+impl ElementList for ast::ArgList {
+    const STEP: usize = 2;
+    type TSN = ast::Arg;
+}
+
+impl ElementList for ast::ModifierList {
+    const STEP: usize = 1;
+    type TSN = ast::Modifier;
+}
+
+impl ElementList for ast::AttributeList {
+    const STEP: usize = 1;
+    type TSN = ast::Attribute;
+}
+
+impl ElementList for ast::ParamList {
+    const STEP: usize = 2;
+    type TSN = ast::Param;
+}
+
 #[derive(Clone, Debug)]
 pub enum Visibility {
     Default,
@@ -116,18 +136,6 @@ impl<'a> NodeToElement<'a, ast::ArgListParenthesized> for Vec<Arg<'a>> {
         NodeToElement::<'a, ast::ArgList>::child_node_to_element::<
             { ast::ArgListParenthesized::INDEX_ARGUMENTS },
         >(db, node)
-    }
-}
-
-impl<'a> NodeToElement<'a, ast::ArgList> for Vec<Arg<'a>> {
-    fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Self {
-        ElementList::<ast::Arg, 2, Arg<'a>>::elements(db, node)
-    }
-}
-
-impl<'a> NodeToElement<'a, ast::ModifierList> for Vec<Modifier> {
-    fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Self {
-        ElementList::<ast::Modifier, 1, Modifier>::elements(db, node)
     }
 }
 

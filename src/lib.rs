@@ -26,3 +26,6 @@ pub mod syntax_element;
 pub use syntax_element::{
     ElementList, NodeToElement, SyntaxElement, SyntaxElementTrait, TypedSyntaxElement,
 };
+
+pub mod statement;
+pub use statement::Statement;

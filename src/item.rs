@@ -1,10 +1,9 @@
 use crate::function::Function;
 use crate::{
-    Attribute, Expression, GenericParam, NodeToElement, SyntaxElementTrait, TypedSyntaxElement,
-    Visibility,
+    Attribute, ElementList, Expression, GenericParam, NodeToElement, SyntaxElementTrait,
+    TypedSyntaxElement, Visibility,
 };
 use cairo_lang_syntax::node::db::SyntaxGroup;
-use cairo_lang_syntax::node::element_list::ElementList;
 use cairo_lang_syntax::node::kind::SyntaxKind;
 use cairo_lang_syntax::node::{ast, SyntaxNode, Terminal, Token, TypedSyntaxNode};
 
@@ -26,6 +25,21 @@ pub type ItemMissing<'a> = TypedSyntaxElement<'a, ast::ModuleItemMissing>;
 pub type Member<'a> = TypedSyntaxElement<'a, ast::Member>;
 pub type Variant<'a> = TypedSyntaxElement<'a, ast::Variant>;
 pub type ModuleBody<'a> = TypedSyntaxElement<'a, ast::ModuleBody>;
+
+impl ElementList for ast::ModuleItemList {
+    const STEP: usize = 1;
+    type TSN = ast::ModuleItem;
+}
+
+impl ElementList for ast::VariantList {
+    const STEP: usize = 2;
+    type TSN = ast::Variant;
+}
+
+impl ElementList for ast::MemberList {
+    const STEP: usize = 2;
+    type TSN = ast::Member;
+}
 
 pub enum Item<'a> {
     Constant(Constant<'a>),
@@ -78,36 +92,34 @@ impl<'a> NodeToElement<'a, ast::ModuleItem> for Item<'a> {
     }
 }
 
-impl<'a> NodeToElement<'a, ast::ModuleItemList> for Vec<Item<'a>> {
-    fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Vec<Item<'a>> {
-        syntax_node_to_vec::<1, ast::ModuleItem>(db, node)
+impl<'a, E> NodeToElement<'a, ast::ModuleBody> for Vec<E>
+where
+    E: NodeToElement<'a, ast::ModuleItem>,
+{
+    fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Vec<E> {
+        NodeToElement::<'a, ast::ModuleItemList>::child_node_to_element::<
+            { ast::ModuleBody::INDEX_ITEMS },
+        >(db, node)
     }
 }
 
-impl<'a> NodeToElement<'a, ast::ModuleBody> for Vec<Item<'a>> {
-    fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Vec<Item<'a>> {
-        // ElementList::<Item<'a>, 1>::child_node_to_element::<ast::ModuleBody::INDEX_ITEMS>(db, node)
-        // NodeToElement::<'a, ast::ModuleItemList>::child_node_to_element::<
-        //     ast::ModuleBody::INDEX_ITEMS,
-        // >(db, node)
+impl<'a, E: NodeToElement<'a, ast::ModuleItem>> NodeToElement<'a, ast::MaybeModuleBody> for Vec<E> {
+    fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Vec<E> {
+        let kind = node.kind(db);
+        match kind {
+            SyntaxKind::TerminalSemicolon => Vec::new(),
+            SyntaxKind::ModuleBody => {
+                NodeToElement::<'a, ast::ModuleBody>::node_to_element(db, node)
+            }
+            _ => panic!(
+                "Unexpected syntax kind {:?} when constructing {}.",
+                kind, "MaybeModuleBody"
+            ),
+        }
     }
 }
 
-// impl<'a, E: NodeToElement<'a, ast::ModuleBody>> NodeToElement<'a, ast::MaybeModuleBody> for E {
-//     fn node_to_element(db: &dyn SyntaxGroup, node: SyntaxNode) -> E {
-//         let kind = node.kind(db);
-//         match kind {
-//             SyntaxKind::TerminalSemicolon => vec![],
-//             SyntaxKind::ModuleBody => NodeToElement::<ast::ModuleBody>::node_to_element(db, node),
-//             _ => panic!(
-//                 "Unexpected syntax kind {:?} when constructing {}.",
-//                 kind, "MaybeModuleBody"
-//             ),
-//         }
-//     }
-// }
-
-impl Constant<'_> {
+impl<'a> Constant<'a> {
     pub const INDEX_ATTRIBUTES: usize = ast::ItemConstant::INDEX_ATTRIBUTES;
     pub const INDEX_VISIBILITY: usize = ast::ItemConstant::INDEX_VISIBILITY;
     pub const INDEX_CONST_KW: usize = ast::ItemConstant::INDEX_CONST_KW;
@@ -118,10 +130,10 @@ impl Constant<'_> {
     pub const INDEX_SEMICOLON: usize = ast::ItemConstant::INDEX_SEMICOLON;
 
     pub fn attributes(&self) -> Vec<Attribute> {
-        self.get_child_vec::<Self::INDEX_ATTRIBUTES, 1, ast::Attribute>()
+        self.get_child_element::<{ Constant::INDEX_ATTRIBUTES }, ast::AttributeList, Vec<Attribute>>()
     }
     pub fn visibility(&self) -> Visibility {
-        self.get_child_element::<Self::INDEX_VISIBILITY, ast::Visibility>()
+        self.get_child_element::<{ Constant::INDEX_VISIBILITY }, ast::Visibility, Visibility>()
     }
     // pub fn name(&self) -> String {
     //     let tsn: ast::TerminalIdentifier =
@@ -129,11 +141,11 @@ impl Constant<'_> {
     //     tsn.token(self.db).text(self.db).to_string()
     // }
     pub fn ty(&self) -> Expression {
-        self.get_child_element::<Self::INDEX_TYPE_CLAUSE, ast::TypeClause>()
+        self.get_child_element::<{ Constant::INDEX_TYPE_CLAUSE }, ast::TypeClause, Expression<'a>>()
     }
 
     pub fn value(&self) -> Expression {
-        self.get_child_element::<Self::INDEX_VALUE, ast::Expr>()
+        self.get_child_element::<{ Constant::INDEX_VALUE }, ast::Expr, Expression>()
     }
 }
 
@@ -145,24 +157,23 @@ impl Module<'_> {
     pub const INDEX_BODY: usize = ast::ItemModule::INDEX_BODY;
 
     pub fn attributes(&self) -> Vec<Attribute> {
-        self.get_child_vec::<Self::INDEX_ATTRIBUTES, 1, ast::Attribute>()
+        self.get_child_element::<{ Module::INDEX_ATTRIBUTES }, ast::AttributeList, Vec<Attribute>>()
     }
 
     pub fn visibility(&self) -> Visibility {
-        self.get_child_element::<Self::INDEX_VISIBILITY>()
+        self.get_child_element::<{ Module::INDEX_VISIBILITY }, ast::Visibility, Visibility>()
     }
     // pub fn name(&self) -> String {
     //     self.tsn.name(self.db()).text(self.db()).to_string()
     // }
     pub fn items(&self) -> Vec<Item> {
-        self.get_child_element::<Self::INDEX_BODY, ast::MaybeModuleBody>()
+        self.get_child_element::<{ Module::INDEX_BODY }, ast::MaybeModuleBody, Vec<Item>>()
     }
 }
 
 impl Struct<'_> {
     pub const INDEX_VISIBILITY: usize = ast::ItemStruct::INDEX_VISIBILITY;
     pub const INDEX_ATTRIBUTES: usize = ast::ItemStruct::INDEX_ATTRIBUTES;
-    pub const INDEX_VISIBILITY: usize = ast::ItemStruct::INDEX_VISIBILITY;
     pub const INDEX_STRUCT_KW: usize = ast::ItemStruct::INDEX_STRUCT_KW;
     pub const INDEX_NAME: usize = ast::ItemStruct::INDEX_NAME;
     pub const INDEX_GENERIC_PARAMS: usize = ast::ItemStruct::INDEX_GENERIC_PARAMS;
@@ -171,60 +182,70 @@ impl Struct<'_> {
     pub const INDEX_RBRACE: usize = ast::ItemStruct::INDEX_RBRACE;
 
     pub fn visibility(&self) -> Visibility {
-        self.get_child_element::<Self::INDEX_VISIBILITY, ast::Visibility>()
+        self.get_child_element::<{ Struct::INDEX_VISIBILITY }, ast::Visibility, Visibility>()
     }
     pub fn name(&self) -> String {
-        self.tsn.name(self.db()).text(self.db()).to_string()
+        self.get_child_element::<{ Struct::INDEX_NAME }, ast::TerminalIdentifier, String>()
     }
     pub fn generic_params(&self) -> Vec<GenericParam> {
-        self.get_child_vec
-        option_wrapped_generic_params_to_vec(self.db(), self.tsn.generic_params(self.db()))
+        self.get_child_element::<{Struct::INDEX_GENERIC_PARAMS}, ast::OptionWrappedGenericParamList, _>(
+        )
     }
     pub fn members(&self) -> Vec<Member> {
-        self.get_child_vec::<Self::INDEX_MEMBERS>()
+        self.get_child_element::<{ Struct::INDEX_MEMBERS }, ast::MemberList, _>()
     }
 }
 
 impl Enum<'_> {
+    pub const INDEX_ATTRIBUTES: usize = ast::ItemEnum::INDEX_ATTRIBUTES;
+    pub const INDEX_VISIBILITY: usize = ast::ItemEnum::INDEX_VISIBILITY;
+    pub const INDEX_ENUM_KW: usize = ast::ItemEnum::INDEX_ENUM_KW;
+    pub const INDEX_NAME: usize = ast::ItemEnum::INDEX_NAME;
+    pub const INDEX_GENERIC_PARAMS: usize = ast::ItemEnum::INDEX_GENERIC_PARAMS;
+    pub const INDEX_LBRACE: usize = ast::ItemEnum::INDEX_LBRACE;
+    pub const INDEX_VARIANTS: usize = ast::ItemEnum::INDEX_VARIANTS;
+    pub const INDEX_RBRACE: usize = ast::ItemEnum::INDEX_RBRACE;
+
     pub fn visibility(&self) -> Visibility {
-        Visibility::from_parent_typed_syntax_element::<{ ast::ItemEnum::INDEX_VISIBILITY }>(self)
+        self.get_child_element::<{ Enum::INDEX_VISIBILITY }, ast::Visibility, Visibility>()
     }
     pub fn name(&self) -> String {
-        self.tsn.name(self.db()).text(self.db()).to_string()
+        self.get_child_element::<{ Enum::INDEX_NAME }, ast::TerminalIdentifier, String>()
     }
     pub fn generic_params(&self) -> Vec<GenericParam> {
-        option_wrapped_generic_params_to_vec(self.db(), self.tsn.generic_params(self.db()))
+        self.get_child_element::<{Enum::INDEX_GENERIC_PARAMS}, ast::OptionWrappedGenericParamList, _>(
+        )
     }
     pub fn variants(&self) -> Vec<Variant> {
-        self.get_child_vec::<{ ast::ItemEnum::INDEX_VARIANTS }>()
+        self.get_child_element::<{ Enum::INDEX_VARIANTS }, ast::VariantList, Vec<Variant>>()
     }
 }
 
 impl Member<'_> {
+    pub const INDEX_ATTRIBUTES: usize = ast::Member::INDEX_ATTRIBUTES;
+    pub const INDEX_VISIBILITY: usize = ast::Member::INDEX_VISIBILITY;
+    pub const INDEX_NAME: usize = ast::Member::INDEX_NAME;
+    pub const INDEX_TYPE_CLAUSE: usize = ast::Member::INDEX_TYPE_CLAUSE;
     pub fn visibility(&self) -> Visibility {
-        match self.tsn.visibility(self.db()) {
-            ast::Visibility::Pub(_) => Visibility::Pub,
-            ast::Visibility::Default(_) => Visibility::Default,
-        }
+        self.get_child_element::<{ Member::INDEX_VISIBILITY }, ast::Visibility, Visibility>()
     }
     pub fn name(&self) -> String {
-        self.tsn.name(self.db()).text(self.db()).to_string()
+        self.get_child_element::<{ Member::INDEX_NAME }, ast::TerminalIdentifier, String>()
     }
     pub fn ty(&self) -> Expression {
-        Expression::new(self.db(), self.tsn.type_clause(self.db()).ty(self.db()))
+        self.get_child_element::<{ Member::INDEX_TYPE_CLAUSE }, ast::TypeClause, Expression>()
     }
 }
 
 impl Variant<'_> {
+    pub const INDEX_ATTRIBUTES: usize = ast::Variant::INDEX_ATTRIBUTES;
+    pub const INDEX_NAME: usize = ast::Variant::INDEX_NAME;
+    pub const INDEX_TYPE_CLAUSE: usize = ast::Variant::INDEX_TYPE_CLAUSE;
     pub fn name(&self) -> String {
-        self.tsn.name(self.db()).text(self.db()).to_string()
+        self.get_child_element::<{ Variant::INDEX_NAME }, ast::TerminalIdentifier, String>()
     }
+
     pub fn ty(&self) -> Option<Expression> {
-        match self.tsn.type_clause(self.db()) {
-            ast::OptionTypeClause::Empty(_) => None,
-            ast::OptionTypeClause::TypeClause(tsn) => {
-                Some(Expression::new(self.db(), tsn.ty(self.db())))
-            }
-        }
+        self.get_child_element::<{ Variant::INDEX_TYPE_CLAUSE }, ast::OptionTypeClause, Option<Expression>>()
     }
 }
