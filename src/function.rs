@@ -88,6 +88,20 @@ impl<'a> NodeToElement<'a, ast::FunctionWithBody> for Vec<Statement<'a>> {
     }
 }
 
+impl NodeToElement<'_, ast::OptionTerminalNoPanic> for bool {
+    fn node_to_element(db: &dyn SyntaxGroup, node: SyntaxNode) -> Self {
+        let kind = node.kind(db);
+        match kind {
+            SyntaxKind::OptionTerminalNoPanicEmpty => false,
+            SyntaxKind::TerminalNoPanic => true,
+            _ => panic!(
+                "Unexpected syntax kind {:?} when constructing {}.",
+                kind, "OptionTerminalNoPanic"
+            ),
+        }
+    }
+}
+
 impl FunctionDeclaration<'_> {
     pub const INDEX_FUNCTION_KW: usize = ast::FunctionDeclaration::INDEX_FUNCTION_KW;
     pub const INDEX_NAME: usize = ast::FunctionDeclaration::INDEX_NAME;
@@ -194,20 +208,27 @@ impl Function<'_> {
         >()
     }
     pub fn signature(&self) -> FunctionSignature {
-        self.get_child_element::<
-            { Function::INDEX_DECLARATION },
-            ast::FunctionDeclaration,
-            FunctionSignature
-        >()
+        self.get_child_syntax_element::<{ Function::INDEX_DECLARATION }>()
+            .get_child_element::<{ FunctionDeclaration::INDEX_SIGNATURE }, ast::FunctionSignature, _>()
     }
     pub fn parameters(&self) -> Vec<Param> {
-        self.get_child_element::<
-            { Function::INDEX_DECLARATION },
-            ast::FunctionDeclaration,
-            Vec<Param>
-        >()
+        self.get_child_syntax_element::<{ Function::INDEX_DECLARATION }>()
+            .get_child_syntax_element::<{ FunctionDeclaration::INDEX_SIGNATURE }>()
+            .get_child_element::<{ FunctionSignature::INDEX_PARAMETERS }, ast::ParamList, _>()
     }
-    pub fn return_ty(&self) -> Option<Expression> {}
-    pub fn implicits_clause(&self) -> Vec<Path> {}
-    pub fn no_panic(&self) -> bool {}
+    pub fn return_ty(&self) -> Option<Expression> {
+        self.get_child_syntax_element::<{ Function::INDEX_DECLARATION }>()
+            .get_child_syntax_element::<{ FunctionDeclaration::INDEX_SIGNATURE }>()
+            .get_child_element::<{ FunctionSignature::INDEX_RET_TY }, ast::OptionReturnTypeClause, _>()
+    }
+    pub fn implicits_clause(&self) -> Vec<Path> {
+        self.get_child_syntax_element::<{ Function::INDEX_DECLARATION }>()
+            .get_child_syntax_element::<{ FunctionDeclaration::INDEX_SIGNATURE }>()
+            .get_child_element::<{ FunctionSignature::INDEX_IMPLICITS_CLAUSE }, ast::OptionImplicitsClause, _>()
+    }
+    pub fn no_panic(&self) -> bool {
+        self.get_child_syntax_element::<{ Function::INDEX_DECLARATION }>()
+            .get_child_syntax_element::<{ FunctionDeclaration::INDEX_SIGNATURE }>()
+            .get_child_element::<{ FunctionSignature::INDEX_OPTIONAL_NO_PANIC }, ast::OptionTerminalNoPanic, _>()
+    }
 }

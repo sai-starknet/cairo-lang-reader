@@ -17,7 +17,7 @@ pub enum Statement<'a> {
     Return(Return<'a>),
     Break(Break<'a>),
     Item(Item<'a>),
-    Missing(Missing<'a>),
+    Missing,
 }
 
 impl ElementList for ast::StatementList {
@@ -37,7 +37,7 @@ impl<'a> NodeToElement<'a, ast::Statement> for Statement<'a> {
             SyntaxKind::StatementReturn => Statement::Return(Return::node_to_element(db, node)),
             SyntaxKind::StatementBreak => Statement::Break(Break::node_to_element(db, node)),
             SyntaxKind::StatementItem => Statement::Item(Item::node_to_element(db, node)),
-            SyntaxKind::StatementMissing => Statement::Missing(Missing::node_to_element(db, node)),
+            SyntaxKind::StatementMissing => Statement::Missing,
             _ => panic!(
                 "Unexpected syntax kind {:?} when constructing {}.",
                 kind, "Statement"

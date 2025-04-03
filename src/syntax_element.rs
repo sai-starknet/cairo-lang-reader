@@ -145,6 +145,9 @@ pub trait SyntaxElementTrait<'a> {
     fn get_child_element<const INDEX: usize, TSN, E: NodeToElement<'a, TSN>>(&self) -> E {
         E::node_to_element(self.get_db(), self.get_child::<INDEX>())
     }
+    fn get_child_syntax_element<const INDEX: usize>(&self) -> SyntaxElement<'a> {
+        SyntaxElement::from_syntax_node(self.get_db(), self.get_child::<INDEX>())
+    }
     fn as_element<TSN, E>(&self) -> E
     where
         E: NodeToElement<'a, TSN>,
@@ -312,12 +315,5 @@ impl<'a, TSN: TypedSyntaxNode> TypedSyntaxElement<'a, TSN> {
     }
     pub fn to_syntax_element(self) -> SyntaxElement<'a> {
         SyntaxElement::from_syntax_node(self.db, self.node)
-    }
-
-    fn terminal_text(&self) -> String
-    where
-        TSN: Terminal,
-    {
-        NodeToElement::<TSN>::node_to_element(self.db, self.node.clone())
     }
 }
