@@ -1,11 +1,10 @@
 [package]
-name = "cairo-lang-reader"
+name = "cairo_lang_reader"
 version = "0.1.0"
 edition = "2021"
 publish = false
 
 [lib]
-path = "src/lib.rs" # or "crate-type" only if you're building a cdylib
 
 [dependencies]
 cairo-lang-macro = "0.1.1"
@@ -15,6 +14,3 @@ cairo-lang-defs = "2.9.2"
 cairo-lang-diagnostics = "2.9.2"
 cairo-lang-filesystem = "2.9.2"
 smol_str = "0.2.2"
-
-[workspace]
-members = ["."]
