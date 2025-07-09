@@ -5,7 +5,7 @@ use crate::{
 };
 use cairo_lang_syntax::node::db::SyntaxGroup;
 use cairo_lang_syntax::node::kind::SyntaxKind;
-use cairo_lang_syntax::node::{ast, SyntaxNode, Terminal, Token, TypedSyntaxNode};
+use cairo_lang_syntax::node::{ast, SyntaxNode};
 
 pub type Constant<'a> = TypedSyntaxElement<'a, ast::ItemConstant>;
 pub type Module<'a> = TypedSyntaxElement<'a, ast::ItemModule>;
@@ -40,7 +40,7 @@ impl ElementList for ast::MemberList {
     const STEP: usize = 2;
     type TSN = ast::Member;
 }
-
+#[derive(Clone)]
 pub enum Item<'a> {
     Constant(Constant<'a>),
     Module(Module<'a>),

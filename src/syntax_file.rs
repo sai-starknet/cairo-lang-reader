@@ -1,7 +1,6 @@
-use crate::db_tns::NewDbTypedSyntaxNode;
 use crate::item::Item;
 use crate::syntax_element::SyntaxElementTrait;
-use crate::{element_list_to_vec, TypedSyntaxElement};
+use crate::TypedSyntaxElement;
 use cairo_lang_diagnostics::Diagnostics;
 use cairo_lang_macro::TokenStream;
 use cairo_lang_parser::utils::SimpleParserDatabase;
@@ -11,22 +10,13 @@ use cairo_lang_syntax::node::ast;
 pub type SyntaxFile<'a> = TypedSyntaxElement<'a, ast::SyntaxFile>;
 
 impl SyntaxFile<'_> {
-    const ITEMS_INDEX: usize = 0;
-    const EOF_INDEX: usize = 1;
+    pub const ITEMS_INDEX: usize = ast::SyntaxFile::INDEX_ITEMS;
+    pub const EOF_INDEX: usize = ast::SyntaxFile::INDEX_EOF;
     pub fn items(&self) -> Vec<Item> {
-        self.get_child_vec::<Self::ITEMS_INDEX>()
+        self.get_child_element::<{ SyntaxFile::ITEMS_INDEX }, ast::ModuleItemList, Vec<Item>>()
     }
     pub fn item(&self) -> Item {
-        Item::new(
-            self.db,
-            self.as_typed_syntax_node()
-                .items(self.db)
-                .elements(self.db)
-                .iter()
-                .next()
-                .unwrap()
-                .clone(),
-        )
+        self.items().iter().next().unwrap().clone()
     }
 }
 

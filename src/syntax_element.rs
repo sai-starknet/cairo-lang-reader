@@ -3,7 +3,7 @@ use cairo_lang_filesystem::span::{TextOffset, TextPosition, TextSpan, TextWidth}
 use cairo_lang_syntax::node::db::SyntaxGroup;
 use cairo_lang_syntax::node::green::GreenNode;
 use cairo_lang_syntax::node::kind::SyntaxKind;
-use cairo_lang_syntax::node::{ast, SyntaxNode, Terminal, TypedSyntaxNode};
+use cairo_lang_syntax::node::{SyntaxNode, TypedSyntaxNode};
 use smol_str::SmolStr;
 use std::marker::PhantomData;
 use std::sync::Arc;

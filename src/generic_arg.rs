@@ -93,14 +93,14 @@ impl<'a> GenericArgUnnamed<'a> {
 }
 
 impl<'a> GenericArg<'a> {
-    fn name(&self) -> Option<String> {
+    pub fn name(&self) -> Option<String> {
         match self {
             GenericArg::Unnamed(_) => None,
             GenericArg::Named(named) => Some(named.name()),
         }
     }
 
-    fn value(self) -> Expression<'a> {
+    pub fn value(self) -> Expression<'a> {
         match self {
             GenericArg::Unnamed(unnamed) => unnamed.value(),
             GenericArg::Named(named) => named.value(),

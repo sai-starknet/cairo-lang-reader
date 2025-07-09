@@ -14,7 +14,7 @@ pub use syntax_file::{parse_token_stream_to_syntax_file, SyntaxFile};
 
 pub mod generic_arg;
 
-mod generic_param;
+pub mod generic_param;
 pub use generic_param::GenericParam;
 
 pub mod function;

@@ -1,11 +1,10 @@
-use crate::syntax_element::get_child;
 use crate::{
     expression, ElementList, Expression, NodeToElement, SyntaxElementTrait, TypedSyntaxElement,
 };
+use cairo_lang_syntax::node::ast;
 use cairo_lang_syntax::node::db::SyntaxGroup;
 use cairo_lang_syntax::node::kind::SyntaxKind;
-use cairo_lang_syntax::node::{ast, Terminal, Token};
-use cairo_lang_syntax::node::{SyntaxNode, TypedSyntaxNode};
+use cairo_lang_syntax::node::SyntaxNode;
 
 pub type Attribute<'a> = TypedSyntaxElement<'a, ast::Attribute>;
 pub type Arg<'a> = TypedSyntaxElement<'a, ast::Arg>;
