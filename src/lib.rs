@@ -5,7 +5,7 @@
 // };
 
 pub mod expression;
-pub use expression::Expression;
+pub use expression::{Expression, PathSegment};
 
 pub mod item;
 

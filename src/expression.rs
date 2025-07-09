@@ -29,8 +29,10 @@ pub type ExprInlineMacro<'a> = TypedSyntaxElement<'a, ast::ExprInlineMacro>;
 pub type FixedSizeArray<'a> = TypedSyntaxElement<'a, ast::ExprFixedSizeArray>;
 pub type ExprMissing<'a> = TypedSyntaxElement<'a, ast::ExprMissing>;
 
+pub type PathSegment<'a> = TypedSyntaxElement<'a, ast::PathSegment>;
+
 pub enum Expression<'a> {
-    Path(Path<'a>),
+    Path(Vec<PathSegment<'a>>),
     Literal(Literal<'a>),
     ShortString(String),
     String(String),
@@ -63,11 +65,18 @@ impl ElementList for ast::ExprList {
     type TSN = ast::Expr;
 }
 
+impl ElementList for ast::ExprPath {
+    const STEP: usize = 2;
+    type TSN = ast::PathSegment;
+}
+
 impl<'a> NodeToElement<'a, ast::Expr> for Expression<'a> {
     fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Expression<'a> {
         let kind = node.kind(db);
         match kind {
-            SyntaxKind::ExprPath => Expression::Path(Path::from_syntax_node(db, node)),
+            SyntaxKind::ExprPath => Expression::Path(
+                NodeToElement::<'a, ast::ExprPath>::node_to_element(db, node),
+            ),
             SyntaxKind::TerminalLiteralNumber => {
                 Expression::Literal(Literal::from_syntax_node(db, node))
             }

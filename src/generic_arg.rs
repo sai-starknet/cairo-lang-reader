@@ -7,7 +7,7 @@ pub type GenericArgUnnamed<'a> = TypedSyntaxElement<'a, ast::GenericArgUnnamed>;
 pub type GenericArgNamed<'a> = TypedSyntaxElement<'a, ast::GenericArgNamed>;
 
 pub enum GenericArg<'a> {
-    Unnamed(Expression<'a>),
+    Unnamed(GenericArgUnnamed<'a>),
     Named(GenericArgNamed<'a>),
 }
 
@@ -85,6 +85,13 @@ impl<'a> GenericArgNamed<'a> {
     }
 }
 
+impl<'a> GenericArgUnnamed<'a> {
+    pub const INDEX_VALUE: usize = ast::GenericArgUnnamed::INDEX_VALUE;
+    pub fn value(&self) -> Expression<'a> {
+        self.get_child_element::<{ GenericArgUnnamed::INDEX_VALUE }, ast::GenericArgValue, _>()
+    }
+}
+
 impl<'a> GenericArg<'a> {
     fn name(&self) -> Option<String> {
         match self {
@@ -95,7 +102,7 @@ impl<'a> GenericArg<'a> {
 
     fn value(self) -> Expression<'a> {
         match self {
-            GenericArg::Unnamed(unnamed) => unnamed,
+            GenericArg::Unnamed(unnamed) => unnamed.value(),
             GenericArg::Named(named) => named.value(),
         }
     }
