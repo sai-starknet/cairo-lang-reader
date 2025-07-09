@@ -11,7 +11,7 @@ crate-type = ["cdylib"]
 cairo-lang-macro = "0.1.1"
 cairo-lang-parser = "2.9.2"
 cairo-lang-syntax = "2.9.2"
-cairo-lang-defs = "=2.9.2"
+cairo-lang-defs = "2.9.2"
 cairo-lang-diagnostics = "2.9.2"
 cairo-lang-filesystem = "2.9.2"
 smol_str = "0.2.2"
