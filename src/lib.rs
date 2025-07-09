@@ -8,6 +8,7 @@ pub mod expression;
 pub use expression::{Expression, PathSegment};
 
 pub mod item;
+pub use item::Item;
 
 pub mod syntax_file;
 pub use syntax_file::{parse_token_stream_to_syntax_file, SyntaxFile};
