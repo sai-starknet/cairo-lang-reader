@@ -7,10 +7,10 @@ publish = false
 [lib]
 
 [dependencies]
-cairo-lang-macro = "0.1.1"
-cairo-lang-parser = "2.10.1"
-cairo-lang-syntax = "2.10.1"
-cairo-lang-defs = "2.10.1"
-cairo-lang-diagnostics = "2.10.1"
-cairo-lang-filesystem = "2.10.1"
+cairo-lang-macro = { version = "0.2.0-rc.1", git = "https://github.com/software-mansion/scarb.git" }
+cairo-lang-parser = "2.11.4"
+cairo-lang-syntax = "2.11.4"
+cairo-lang-defs = "2.11.4"
+cairo-lang-diagnostics = "2.11.4"
+cairo-lang-filesystem = "2.11.4"
 smol_str = "0.2.2"
