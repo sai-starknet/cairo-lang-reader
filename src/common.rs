@@ -1,12 +1,8 @@
-use crate::{
-    expression, ElementList, Expression, NodeToElement, SyntaxElementTrait, TypedSyntaxElement,
-};
+use crate::{ElementList, Expression, NodeToElement, SyntaxElementTrait, TypedSyntaxElement};
 use cairo_lang_syntax::node::ast;
 use cairo_lang_syntax::node::db::SyntaxGroup;
 use cairo_lang_syntax::node::kind::SyntaxKind;
 use cairo_lang_syntax::node::SyntaxNode;
-
-pub type Attribute<'a> = TypedSyntaxElement<'a, ast::Attribute>;
 pub type Arg<'a> = TypedSyntaxElement<'a, ast::Arg>;
 pub type Param<'a> = TypedSyntaxElement<'a, ast::Param>;
 pub type TerminalIdentifier<'a> = TypedSyntaxElement<'a, ast::TerminalIdentifier>;
@@ -142,27 +138,12 @@ impl<'a> NodeToElement<'a, ast::ArgClause> for ArgClause<'a> {
     }
 }
 
-
 impl Visibility {
     pub fn to_string(&self) -> String {
         match self {
             Visibility::Default => "".into(),
             Visibility::Pub => "pub".into(),
         }
-    }
-}
-
-impl Attribute<'_> {
-    pub const INDEX_HASH: usize = ast::Attribute::INDEX_HASH;
-    pub const INDEX_LBRACK: usize = ast::Attribute::INDEX_LBRACK;
-    pub const INDEX_ATTR: usize = ast::Attribute::INDEX_ATTR;
-    pub const INDEX_ARGUMENTS: usize = ast::Attribute::INDEX_ARGUMENTS;
-    pub const INDEX_RBRACK: usize = ast::Attribute::INDEX_RBRACK;
-    pub fn attr(&self) -> expression::Path {
-        self.get_child_element::<{ Attribute::INDEX_ATTR }, ast::ExprPath, expression::Path>()
-    }
-    pub fn arguments(&self) -> Vec<Arg> {
-        self.get_child_element::<{Attribute::INDEX_ARGUMENTS}, ast::OptionArgListParenthesized, _>()
     }
 }
 

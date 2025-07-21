@@ -4,6 +4,9 @@
 //     NewDbTypedSyntaxNode,
 // };
 
+pub mod attribute;
+pub use attribute::{Attribute, QueryAttrs};
+
 pub mod expression;
 pub use expression::{Expression, PathSegment};
 
@@ -21,7 +24,7 @@ pub use generic_param::GenericParam;
 pub mod function;
 
 pub mod common;
-pub use common::{Arg, Attribute, Param, Visibility};
+pub use common::{Arg, Param, Visibility};
 
 pub mod syntax_element;
 pub use syntax_element::{
