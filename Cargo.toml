@@ -13,7 +13,7 @@ cairo-lang-syntax = "*"
 cairo-lang-defs = "*"
 cairo-lang-diagnostics = "*"
 cairo-lang-filesystem = "*"
-smol_str = "0.2.2"
+smol_str = "0.3.2"
 
 [patch.crates-io]
 starknet = { git = "https://github.com/xJonathanLEI/starknet-rs", rev = "ff4222e" }

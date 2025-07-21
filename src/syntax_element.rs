@@ -3,9 +3,9 @@ use cairo_lang_filesystem::span::{TextOffset, TextPosition, TextSpan, TextWidth}
 use cairo_lang_syntax::node::db::SyntaxGroup;
 use cairo_lang_syntax::node::green::GreenNode;
 use cairo_lang_syntax::node::ids::SyntaxStablePtrId;
+use cairo_lang_syntax::node::iter::Preorder;
 use cairo_lang_syntax::node::kind::SyntaxKind;
 use cairo_lang_syntax::node::{SyntaxNode, TypedSyntaxNode};
-use cairo_lang_syntax::node::iter::Preorder;
 use smol_str::SmolStr;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -25,7 +25,7 @@ pub struct TypedSyntaxElement<'a, TSN: TypedSyntaxNode> {
 }
 
 pub fn get_child<const INDEX: usize>(db: &dyn SyntaxGroup, node: SyntaxNode) -> SyntaxNode {
-    db.get_children(node).get(INDEX).unwrap().clone()
+    node.get_children(db).get(INDEX).unwrap().clone()
 }
 
 // pub trait ElementList<'a, const STEP: usize, TSN, E: NodeToElement<'a, TSN>> {
@@ -80,7 +80,7 @@ where
     E: NodeToElement<'a, EL::TSN>,
 {
     fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Vec<E> {
-        db.get_children(node)
+        node.get_children(db)
             .iter()
             .step_by(EL::STEP)
             .map(|sn| E::node_to_element(db, sn.clone()))
@@ -139,7 +139,6 @@ impl<'a, TSN: TypedSyntaxNode> NodeToElement<'a, TSN> for TSN {
     }
 }
 
-
 pub trait SyntaxElementTrait<'a> {
     fn from_syntax_node(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Self;
     fn get_db(&self) -> &'a dyn SyntaxGroup;
@@ -147,6 +146,7 @@ pub trait SyntaxElementTrait<'a> {
     fn to_syntax_node(self) -> SyntaxNode;
 
     fn get_children(&self) -> Arc<[SyntaxNode]>;
+    fn get_children_vec(&self) -> Vec<SyntaxNode>;
     fn patch_builder(&self) -> PatchBuilder;
     fn get_child<const INDEX: usize>(&self) -> SyntaxNode;
     fn get_child_kind<const INDEX: usize>(&self) -> SyntaxKind;
@@ -181,7 +181,7 @@ pub trait SyntaxElementTrait<'a> {
         TSN::from_syntax_node(self.get_db(), self.get_child::<INDEX>())
     }
     fn offset(&self) -> TextOffset {
-        self.get_syntax_node().offset()
+        self.get_syntax_node().offset(self.get_db())
     }
     fn width(&self) -> TextWidth {
         self.get_syntax_node().width(self.get_db())
@@ -202,10 +202,10 @@ pub trait SyntaxElementTrait<'a> {
         self.get_syntax_node().span_without_trivia(self.get_db())
     }
     fn parent(&self) -> Option<SyntaxNode> {
-        self.get_syntax_node().parent()
+        self.get_syntax_node().parent(self.get_db())
     }
     fn stable_ptr(&self) -> SyntaxStablePtrId {
-        self.get_syntax_node().stable_ptr()
+        self.get_syntax_node().stable_ptr(self.get_db())
     }
     fn get_terminal_token(&self) -> Option<SyntaxNode> {
         self.get_syntax_node().get_terminal_token(self.get_db())
@@ -275,7 +275,10 @@ impl<'a> SyntaxElementTrait<'a> for SyntaxElement<'a> {
         self.node
     }
     fn get_children(&self) -> Arc<[SyntaxNode]> {
-        self.db.get_children(self.node.clone())
+        self.node.get_children(self.db).into()
+    }
+    fn get_children_vec(&self) -> Vec<SyntaxNode> {
+        self.node.get_children(self.db)
     }
     fn get_child<const INDEX: usize>(&self) -> SyntaxNode {
         self.get_children()[INDEX].clone()
@@ -291,7 +294,7 @@ impl<'a> SyntaxElementTrait<'a> for SyntaxElement<'a> {
 impl<'a, TSN: TypedSyntaxNode> SyntaxElementTrait<'a> for TypedSyntaxElement<'a, TSN> {
     fn from_syntax_node(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Self {
         Self {
-            children: db.get_children(node.clone()),
+            children: node.get_children(db).into(),
             db,
             node,
             phantom: PhantomData,
@@ -308,6 +311,9 @@ impl<'a, TSN: TypedSyntaxNode> SyntaxElementTrait<'a> for TypedSyntaxElement<'a,
     }
     fn get_children(&self) -> Arc<[SyntaxNode]> {
         self.children.clone()
+    }
+    fn get_children_vec(&self) -> Vec<SyntaxNode> {
+        self.children.to_vec()
     }
     fn get_child<const INDEX: usize>(&self) -> SyntaxNode {
         self.children[INDEX].clone()
