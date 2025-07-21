@@ -142,6 +142,16 @@ impl<'a> NodeToElement<'a, ast::ArgClause> for ArgClause<'a> {
     }
 }
 
+
+impl Visibility {
+    pub fn to_string(&self) -> String {
+        match self {
+            Visibility::Default => "".into(),
+            Visibility::Pub => "pub".into(),
+        }
+    }
+}
+
 impl Attribute<'_> {
     pub const INDEX_HASH: usize = ast::Attribute::INDEX_HASH;
     pub const INDEX_LBRACK: usize = ast::Attribute::INDEX_LBRACK;

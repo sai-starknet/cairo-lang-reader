@@ -2,6 +2,7 @@ use cairo_lang_defs::patcher::PatchBuilder;
 use cairo_lang_filesystem::span::{TextOffset, TextPosition, TextSpan, TextWidth};
 use cairo_lang_syntax::node::db::SyntaxGroup;
 use cairo_lang_syntax::node::green::GreenNode;
+use cairo_lang_syntax::node::ids::SyntaxStablePtrId;
 use cairo_lang_syntax::node::kind::SyntaxKind;
 use cairo_lang_syntax::node::{SyntaxNode, TypedSyntaxNode};
 use smol_str::SmolStr;
@@ -42,7 +43,6 @@ pub trait ElementList {
     const STEP: usize;
     type TSN: TypedSyntaxNode;
 }
-
 // impl<'a, const STEP: usize, TSN, E: NodeToElement<'a, TSN>> ElementList<'a, E> for TSN {
 //     const STEP: usize = STEP;
 //     fn elements(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Vec<E> {
@@ -132,6 +132,13 @@ impl<'a, TSN: TypedSyntaxNode> NodeToElement<'a, TSN> for TypedSyntaxElement<'a,
     }
 }
 
+impl<'a, TSN: TypedSyntaxNode> NodeToElement<'a, TSN> for TSN {
+    fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> TSN {
+        TypedSyntaxNode::from_syntax_node(db, node)
+    }
+}
+
+
 pub trait SyntaxElementTrait<'a> {
     fn from_syntax_node(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Self;
     fn get_db(&self) -> &'a dyn SyntaxGroup;
@@ -193,8 +200,11 @@ pub trait SyntaxElementTrait<'a> {
     fn span_without_trivia(&self) -> TextSpan {
         self.get_syntax_node().span_without_trivia(self.get_db())
     }
-    fn position_in_parent(&self) -> Option<usize> {
-        self.get_syntax_node().position_in_parent(self.get_db())
+    fn parent(&self) -> Option<SyntaxNode> {
+        self.get_syntax_node().parent()
+    }
+    fn stable_ptr(&self) -> SyntaxStablePtrId {
+        self.get_syntax_node().stable_ptr()
     }
     fn get_terminal_token(&self) -> Option<SyntaxNode> {
         self.get_syntax_node().get_terminal_token(self.get_db())

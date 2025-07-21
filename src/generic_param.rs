@@ -86,6 +86,22 @@ impl<'a> NodeToElement<'a, ast::OptionWrappedGenericParamList> for Vec<GenericPa
     }
 }
 
+impl<'a> NodeToElement<'a, ast::OptionWrappedGenericParamList> for Option<Vec<GenericParam<'a>>> {
+    fn node_to_element(db: &'a dyn SyntaxGroup, node: SyntaxNode) -> Self {
+        let kind = node.kind(db);
+        match kind {
+            SyntaxKind::OptionWrappedGenericParamListEmpty => None,
+            SyntaxKind::WrappedGenericParamList => {
+                Some(NodeToElement::<'a, ast::WrappedGenericParamList>::node_to_element(db, node))
+            }
+            _ => panic!(
+                "Unexpected syntax kind {:?} when constructing {}.",
+                kind, "OptionWrappedGenericParamList"
+            ),
+        }
+    }
+}
+
 impl<'a> Const<'a> {
     pub const INDEX_CONST_KW: usize = ast::GenericParamConst::INDEX_CONST_KW;
     pub const INDEX_NAME: usize = ast::GenericParamConst::INDEX_NAME;

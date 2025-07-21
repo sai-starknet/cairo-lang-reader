@@ -171,7 +171,7 @@ impl Module<'_> {
     }
 }
 
-impl Struct<'_> {
+impl<'a> Struct<'a> {
     pub const INDEX_VISIBILITY: usize = ast::ItemStruct::INDEX_VISIBILITY;
     pub const INDEX_ATTRIBUTES: usize = ast::ItemStruct::INDEX_ATTRIBUTES;
     pub const INDEX_STRUCT_KW: usize = ast::ItemStruct::INDEX_STRUCT_KW;
@@ -184,14 +184,18 @@ impl Struct<'_> {
     pub fn visibility(&self) -> Visibility {
         self.get_child_element::<{ Struct::INDEX_VISIBILITY }, ast::Visibility, Visibility>()
     }
+    pub fn attributes(&self) -> Vec<Attribute> {
+        self.get_child_element::<{ Struct::INDEX_ATTRIBUTES }, ast::AttributeList, Vec<Attribute>>()
+    }
     pub fn name(&self) -> String {
         self.get_child_element::<{ Struct::INDEX_NAME }, ast::TerminalIdentifier, String>()
     }
-    pub fn generic_params(&self) -> Vec<GenericParam> {
+
+    pub fn generic_params<T>(&self) -> T where T: NodeToElement<'a, ast::OptionWrappedGenericParamList> {
         self.get_child_element::<{Struct::INDEX_GENERIC_PARAMS}, ast::OptionWrappedGenericParamList, _>(
         )
     }
-    pub fn members(&self) -> Vec<Member> {
+    pub fn members<T>(&self) -> T where T: NodeToElement<'a, ast::MemberList>  {
         self.get_child_element::<{ Struct::INDEX_MEMBERS }, ast::MemberList, _>()
     }
 }
