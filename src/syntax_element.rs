@@ -5,6 +5,7 @@ use cairo_lang_syntax::node::green::GreenNode;
 use cairo_lang_syntax::node::ids::SyntaxStablePtrId;
 use cairo_lang_syntax::node::kind::SyntaxKind;
 use cairo_lang_syntax::node::{SyntaxNode, TypedSyntaxNode};
+use cairo_lang_syntax::node::iter::Preorder;
 use smol_str::SmolStr;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -249,6 +250,15 @@ pub trait SyntaxElementTrait<'a> {
         let db = self.get_db();
         self.to_syntax_node().get_text_of_span(db, span)
     }
+    fn descendants(&self) -> impl Iterator<Item = SyntaxNode> + 'a {
+        self.get_syntax_node().descendants(self.get_db())
+    }
+    fn preorder(&self) -> Preorder<'a> {
+        self.get_syntax_node().preorder(self.get_db())
+    }
+    // fn tokens(&self) -> impl Iterator<Item = SyntaxNode> + 'a {
+    //     self.get_syntax_node().tokens(self.get_db())
+    // }
 }
 
 impl<'a> SyntaxElementTrait<'a> for SyntaxElement<'a> {
