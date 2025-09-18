@@ -275,10 +275,10 @@ impl<'a> SyntaxElementTrait<'a> for SyntaxElement<'a> {
         self.node
     }
     fn get_children(&self) -> Arc<[SyntaxNode]> {
-        self.node.get_children(self.db).into()
+        self.node.get_children(self.db)
     }
     fn get_children_vec(&self) -> Vec<SyntaxNode> {
-        self.node.get_children(self.db)
+        self.node.get_children(self.db).to_vec()
     }
     fn get_child<const INDEX: usize>(&self) -> SyntaxNode {
         self.get_children()[INDEX].clone()

@@ -1,6 +1,6 @@
 use cairo_lang_syntax::node::ast;
 use cairo_lang_syntax::node::helpers::QueryAttrs as NodeQueryAttrs;
-use cairo_lang_syntax::node::{helpers::is_single_arg_attr, TypedSyntaxNode};
+use cairo_lang_syntax::node::TypedSyntaxNode;
 
 use crate::expression::Path;
 use crate::{Arg, SyntaxElementTrait, TypedSyntaxElement};
@@ -26,37 +26,20 @@ pub trait QueryAttrs<'a>
 where
     Self: SyntaxElementTrait<'a>,
 {
-    /// Generic call `self.attributes(db).elements(db)`.
-    ///
-    /// Implementation detail, should not be used by this trait users.
-    #[doc(hidden)]
-    fn attributes_elements(&self) -> Vec<ast::Attribute>;
-    fn query_attr_node(&self, attr: &str) -> Vec<ast::Attribute> {
-        let db = self.get_db();
-        self.attributes_elements()
-            .into_iter()
-            .filter(|a| a.attr(db).as_syntax_node().get_text_without_trivia(db) == attr)
-            .collect()
-    }
+    // fn try_attributes(&self) -> Option<>;
+    // /// Generic call `self.attributes(db).elements(db)`.
+    // ///
+    // /// Implementation detail, should not be used by this trait users.
+    fn attributes_elements(&self) -> impl Iterator<Item = Attribute<'a>>;
     /// Collect all attributes named exactly `attr` attached to this node.
-    fn query_attr(&self, attr: &str) -> Vec<Attribute<'a>> {
-        let db = self.get_db();
+    fn query_attr(&self, attr: &str) -> impl Iterator<Item = Attribute<'a>> {
         self.attributes_elements()
-            .into_iter()
-            .filter(|a| a.attr(db).as_syntax_node().get_text_without_trivia(db) == attr)
-            .map(|a| Attribute::from_typed_syntax_node(db, a))
-            .collect()
+            .filter(move |a| a.attr().get_text_without_trivia() == attr)
     }
 
     /// Find first attribute named exactly `attr` attached do this node.
     fn find_attr(&self, attr: &str) -> Option<Attribute<'a>> {
-        let db = self.get_db();
-        for a in self.attributes_elements().into_iter() {
-            if a.attr(db).as_syntax_node().get_text_without_trivia(db) == attr {
-                return Some(Attribute::from_typed_syntax_node(db, a));
-            }
-        }
-        None
+        self.query_attr(attr).next()
     }
 
     /// Check if this node has an attribute named exactly `attr`.
@@ -64,19 +47,23 @@ where
         self.find_attr(attr).is_some()
     }
 
-    /// Checks if the given object has an attribute with the given name and argument.
-    fn has_attr_with_arg(&self, attr_name: &str, arg_name: &str) -> bool {
-        self.query_attr_node(attr_name)
-            .iter()
-            .any(|attr| is_single_arg_attr(self.get_db(), attr, arg_name))
-    }
+    // /// Checks if the given object has an attribute with the given name and argument.
+    // fn has_attr_with_arg(&self, attr_name: &str, arg_name: &str) -> bool {
+    //     self.query_attr(attr_name)
+    //         .any(|attr| is_single_arg_attr(self.get_db(), &attr, arg_name))
+    // }
 }
 
 impl<'a, TSN: TypedSyntaxNode> QueryAttrs<'a> for TypedSyntaxElement<'a, TSN>
 where
-    TSN: NodeQueryAttrs,
+    TSN: NodeQueryAttrs + Clone,
 {
-    fn attributes_elements(&self) -> Vec<ast::Attribute> {
-        TSN::attributes_elements(&self.as_typed_syntax_node(), self.get_db())
+    fn attributes_elements(&self) -> impl Iterator<Item = Attribute<'a>> {
+        let db = self.get_db();
+        let tsn = self.as_typed_syntax_node::<TSN>().clone();
+        TSN::try_attributes(&tsn, db)
+            .unwrap()
+            .elements(db)
+            .map(move |x| Attribute::from_typed_syntax_node(db, x))
     }
 }
